@@ -1,0 +1,35 @@
+LOG_INTERVAL: 50
+HOOKS: 
+    - "CheckpointHook" 
+    - "IterTimerHook"
+    - "TextLoggerHook" 
+    - "TensorboardMetricsLogger"
+    - "CocoEvaluator"
+PATHS:
+    TRAIN_FILE_PATTERN: "/workspace/data/coco/tfrecord/train*"
+    VAL_FILE_PATTERN: "/workspace/data/coco/tfrecord/val*"
+    WEIGHTS: "/workspace/data/coco/weights/model.ckpt-112603"
+    VAL_ANNOTATIONS: "/workspace/data/coco/annotations/instances_val2017.json"
+    OUT_DIR: "/workspace/data/coco/checkpoints"
+INPUT:
+    TRAIN_BATCH_SIZE: 4
+    EVAL_BATCH_SIZE: 4
+MODEL:
+    DENSE:
+        PRE_NMS_TOP_N_TRAIN: 2000
+        POST_NMS_TOP_N_TRAIN: 1000
+    RCNN:
+        ROI_HEAD: "StandardRoIHead"
+    FRCNN:
+        LOSS_TYPE: "giou"
+    INFERENCE:
+        VISUALIZE_INTERVAL: 500
+SOLVER:
+    SCHEDULE: "CosineDecay"
+    OPTIMIZER: "NovoGrad"
+    LR: 0.002
+    BETA_1: 0.9
+    BETA_2: 0.5
+    MAX_ITERS: 45000
+    WARMUP_STEPS: 750
+    
