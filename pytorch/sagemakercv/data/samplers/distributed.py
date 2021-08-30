@@ -4,11 +4,11 @@
 import os
 import math
 import torch
-from sagemakercv.utils.comm import is_sm_dist, is_herring
+from sagemakercv.utils.dist_utils import is_sm_dist, is_smddprun
 
-use_smd = is_sm_dist() or is_herring()
+use_herring = is_sm_dist() or is_smddprun()
 
-if use_smd:
+if use_herring:
     import smdistributed.dataparallel.torch.distributed as dist
 else:
     import torch.distributed as dist

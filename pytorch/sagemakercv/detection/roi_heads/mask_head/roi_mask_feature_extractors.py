@@ -30,7 +30,7 @@ class MaskRCNNFPNFeatureExtractor(nn.Module):
             output_size=(resolution, resolution),
             scales=scales,
             sampling_ratio=sampling_ratio,
-            is_nhwc = cfg.OPT_LEVEL=="O4"
+            is_nhwc = cfg.NHWC
         )
         input_size = cfg.MODEL.BACKBONE.OUT_CHANNELS
         self.pooler = pooler
@@ -44,17 +44,22 @@ class MaskRCNNFPNFeatureExtractor(nn.Module):
         for layer_idx, layer_features in enumerate(layers, 1):
             layer_name = "mask_fcn{}".format(layer_idx)
             module = make_conv3x3(next_feature, layer_features, 
-                dilation=dilation, stride=1, use_gn=use_gn, nhwc=cfg.OPT_LEVEL=="O4"
+                dilation=dilation, stride=1, use_gn=use_gn, nhwc=cfg.NHWC
             )
             self.add_module(layer_name, module)
             next_feature = layer_features
             self.blocks.append(layer_name)
-        self.nhwc = cfg.OPT_LEVEL=="O4"
+        self.nhwc = cfg.NHWC
 
     def forward(self, x, proposals):
+##        if self.nhwc:
+##            x = nchw_to_nhwc_transform(x)
         x = self.pooler(x, proposals)
         for layer_name in self.blocks:
             x = F.relu(getattr(self, layer_name)(x))
+        #TODO: this transpose may be needed for a more modular Detectron repo
+#        if self.nhwc:
+#            x = nhwc_to_nchw_transform(x)
         return x
 
 

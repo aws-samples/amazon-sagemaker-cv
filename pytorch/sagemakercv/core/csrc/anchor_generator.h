@@ -24,10 +24,9 @@
 #include <THC/THC.h>
 #include <vector>
 
-std::vector<at::Tensor> anchor_generator(at::Tensor& image_height,
-                                         at::Tensor& image_width,
-                                         std::vector<int64_t> feature_map_size,   // (height, width)
-                                         at::Tensor& cell_anchors,                // shape: [1, 3, 4]
-                                         const int stride,
-                                         const float straddle_thresh);
+std::vector<at::Tensor> anchor_generator(std::vector<int64_t> image_shape,       // (height, width)
+                                        std::vector<int64_t> feature_map_size,   // (height, width)
+                                        at::Tensor& cell_anchors,                // shape: [1, 3, 4]
+                                        const int stride,
+                                        const float straddle_thresh);
 

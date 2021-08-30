@@ -1,0 +1,41 @@
+INPUT:
+  TRAIN_INPUT_DIR: "/workspace/data/coco/train2017"
+  VAL_INPUT_DIR: "/workspace/data/coco/val2017"
+  TRAIN_ANNO_DIR: "/workspace/data/coco/annotations/instances_train2017.json"
+  VAL_ANNO_DIR: "/workspace/data/coco/annotations/instances_val2017.json"
+  MIN_SIZE_TRAIN: (416,)
+  MAX_SIZE_TRAIN: 416
+  MIN_SIZE_TEST: 416
+  MAX_SIZE_TEST: 416
+  TO_BGR255: True
+DATASETS:
+  TRAIN: ("coco_2017_train",)
+  TEST: ("coco_2017_val",)
+DATALOADER:
+  SIZE_DIVISIBILITY: 416
+  NUM_WORKERS: 4
+SOLVER:
+  OPTIMIZER: "Adam"
+  BASE_LR: 0.0008
+  BETA1: 0.9
+  BETA2: 0.5
+  ALPHA: .00008
+  LR_SCHEDULE: "COSINE"
+  IMS_PER_BATCH: 64
+  WEIGHT_DECAY: 0.0005
+  STEPS: (9000, 12000)
+  MAX_ITER: 100000
+  WARMUP_FACTOR: .0064
+  WARMUP_ITERS: 1000
+  GRADIENT_CLIPPING: 0.0
+TEST:
+  IMS_PER_BATCH: 64
+  PER_EPOCH_EVAL: True
+NHWC: True
+OUTPUT_DIR: "/root/model_outputs"
+DTYPE: "amp"
+HOOKS:
+  - "IterTimerHook"
+  - "TextLoggerHook"
+  - "COCOEvaluation"
+DISTRIBUTION: "torch"

@@ -106,7 +106,7 @@ class ResNet(nn.Module):
         self.return_features = {}
 
         # Get the tensor layout (NHWC vs NCHW)
-        self.nhwc = cfg.OPT_LEVEL == "O4"
+        self.nhwc = cfg.NHWC
         for stage_spec in stage_specs:
             name = "layer" + str(stage_spec.index)
             stage2_relative_factor = 2 ** (stage_spec.index - 1)
@@ -145,8 +145,8 @@ class ResNet(nn.Module):
 
     def forward(self, x):
         outputs = []
-        # if self.nhwc:
-        #     x = nchw_to_nhwc_transform(x)
+        if self.nhwc:
+            x = nchw_to_nhwc_transform(x)
         x = self.stem(x)
         for stage_name in self.stages:
             x = getattr(self, stage_name)(x)
@@ -376,12 +376,102 @@ class BottleneckWithGN(Bottleneck):
             norm_func=group_norm
         )
 
+class BottleneckNHWC(torch.jit.ScriptModule):
+    __constants__ = ['downsample']
+    def __init__(
+        self,
+        in_channels,
+        bottleneck_channels,
+        out_channels,
+        num_groups,
+        stride_in_1x1,
+        stride,
+        dilation,
+        norm_func,
+        nhwc=True
+    ):
+        super(BottleneckNHWC, self).__init__()
+        conv = Conv2d_NHWC if nhwc else Conv2d
+        if in_channels != out_channels:
+            down_stride = stride if dilation == 1 else 1
+            self.downsample = nn.Sequential(
+                conv(
+                    in_channels, out_channels,
+                    kernel_size=1, stride=down_stride, bias=False
+                ),
+                norm_func(out_channels),
+            )
+            for modules in [self.downsample,]:
+                for l in modules.modules():
+                    if isinstance(l, conv):
+                        kaiming_uniform_(l.weight, a=1, nhwc=nhwc)
+        else:
+            self.downsample = None
+
+        if dilation > 1:
+            stride = 1 # reset to be 1
+
+        # The original MSRA ResNet models have stride in the first 1x1 conv
+        # The subsequent fb.torch.resnet and Caffe2 ResNe[X]t implementations have
+        # stride in the 3x3 conv
+        stride_1x1, stride_3x3 = (stride, 1) if stride_in_1x1 else (1, stride)
+       
+        self.conv1 = conv(
+            in_channels,
+            bottleneck_channels,
+            kernel_size=1,
+            stride=stride_1x1,
+            bias=False,
+        )
+        self.bn1 = norm_func(bottleneck_channels)
+        # TODO: specify init for the above
+        self.conv2 = conv(
+            bottleneck_channels,
+            bottleneck_channels,
+            kernel_size=3,
+            stride=stride_3x3,
+            padding=dilation,
+            bias=False,
+            groups=num_groups,
+            dilation=dilation
+        )
+        self.bn2 = norm_func(bottleneck_channels)
+        self.conv3 = conv(
+            bottleneck_channels, out_channels, kernel_size=1, bias=False
+        )
+        self.bn3 = norm_func(out_channels)
+
+        for l in [self.conv1, self.conv2, self.conv3,]:
+            kaiming_uniform_(l.weight, a=1, nhwc=nhwc)
+
+    @torch.jit.script_method
+    def forward(self, x):
+        identity = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = F.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = F.relu(out)
+
+        out0 = self.conv3(out)
+        out = self.bn3(out0)
+        if self.downsample is not None:
+            identity = self.downsample(x)
+        out = out + identity
+        out = out.relu()
+      
+        return out
+
+
 class BaseStem(torch.nn.Module):
     def __init__(self, cfg, norm_func):
         super(BaseStem, self).__init__()
 
         out_channels = cfg.MODEL.RESNETS.STEM_OUT_CHANNELS
-        self.nhwc = cfg.OPT_LEVEL == "O4"
+        self.nhwc = cfg.NHWC
         conv = Conv2d_NHWC if self.nhwc else Conv2d
         self.conv1 = conv(
               3, out_channels, kernel_size=7, stride=2, padding=3, bias=False
@@ -392,7 +482,9 @@ class BaseStem(torch.nn.Module):
         self.max_pool = max_pool(kernel_size=3, stride=2, padding=1)
         for l in [self.conv1,]:
             kaiming_uniform_(l.weight, a=1)
-    
+
+    # TODO: make jit work with nhwc max_pool function
+    # @torch.jit.script_method
     def forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
@@ -400,18 +492,72 @@ class BaseStem(torch.nn.Module):
         x = self.max_pool(x)
         return x
 
+class BottleneckWithFixedBatchNormNHWC(BottleneckNHWC):
+    def __init__(
+        self,
+        in_channels,
+        bottleneck_channels,
+        out_channels,
+        num_groups=1,
+        stride_in_1x1=True,
+        stride=1,
+        dilation=1,
+        nhwc=False
+    ):
+        frozen_batch_norm = FrozenBatchNorm2d_NHWC if nhwc else FrozenBatchNorm2d
+        super(BottleneckWithFixedBatchNormNHWC, self).__init__(
+            in_channels=in_channels,
+            bottleneck_channels=bottleneck_channels,
+            out_channels=out_channels,
+            num_groups=num_groups,
+            stride_in_1x1=stride_in_1x1,
+            stride=stride,
+            dilation=dilation,
+            norm_func=frozen_batch_norm,
+            nhwc=nhwc
+        )
+
+
 class StemWithFixedBatchNorm(BaseStem):
     def __init__(self, cfg):
-        norm_func=FrozenBatchNorm2d_NHWC if cfg.OPT_LEVEL == "O4" else FrozenBatchNorm2d
+        norm_func=FrozenBatchNorm2d_NHWC if cfg.NHWC else FrozenBatchNorm2d
         super(StemWithFixedBatchNorm, self).__init__(
             cfg, norm_func
         )
+
+
+class BottleneckWithGNNHWC(BottleneckNHWC):
+    def __init__(
+        self,
+        in_channels,
+        bottleneck_channels,
+        out_channels,
+        num_groups=1,
+        stride_in_1x1=True,
+        stride=1,
+        dilation=1,
+        nhwc=False
+    ):
+        super(BottleneckWithGNNHWC, self).__init__(
+            in_channels=in_channels,
+            bottleneck_channels=bottleneck_channels,
+            out_channels=out_channels,
+            num_groups=num_groups,
+            stride_in_1x1=stride_in_1x1,
+            stride=stride,
+            dilation=dilation,
+            norm_func=group_norm
+        )
+
 
 class StemWithGN(BaseStem):
     def __init__(self, cfg):
         super(StemWithGN, self).__init__(cfg, norm_func=group_norm)
 
+
 _TRANSFORMATION_MODULES = Registry({
+    "BottleneckWithFixedBatchNormNHWC": BottleneckWithFixedBatchNormNHWC,
+    "BottleneckWithGNNHWC": BottleneckWithGNNHWC,
     "BottleneckWithFixedBatchNorm": BottleneckWithFixedBatchNorm,
     "BottleneckWithGN": BottleneckWithGN,
 })

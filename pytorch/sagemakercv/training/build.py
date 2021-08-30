@@ -8,7 +8,7 @@ from .optimizers.schedulers import CosineAnnealingWarmUpRestarts
 
 from .optimizers import MLPerfFusedSGD
 from apex.optimizers import FusedSGD
-from apex.optimizers import FusedAdam, FusedLAMB
+# from apex.optimizers import FusedNovoGrad
 from .optimizers.fused_novograd import FusedNovoGrad
 
 def make_optimizer(cfg, model):
@@ -27,47 +27,39 @@ def make_optimizer(cfg, model):
             bias_params.append(value)
         else:
             params.append(value)
-    
-    if cfg.SOLVER.OPTIMIZER == "NovoGrad":
-        optimizer = FusedNovoGrad(
-            [
-                {"params": params, "lr": lr, "weight_decay": weight_decay},
-                {"params": bias_params, "lr": bias_lr, "weight_decay": bias_weight_decay}
-            ],
-            lr, betas=(cfg.SOLVER.BETA1, cfg.SOLVER.BETA2), eps=1e-7, 
-            grad_averaging=False, init_zero=False, reg_inside_moment=True, bias_correction=True)
-    elif cfg.SOLVER.OPTIMIZER == "Adam":
-        optimizer = FusedAdam(
-            [
-                {"params": params, "lr": lr, "weight_decay": weight_decay},
-                {"params": bias_params, "lr": bias_lr, "weight_decay": bias_weight_decay}
-            ],
-            lr, betas=(cfg.SOLVER.BETA1, cfg.SOLVER.BETA2), eps=1e-7, 
-            grad_averaging=False, bias_correction=True)
-    elif cfg.SOLVER.OPTIMIZER == "Lamb":
-        optimizer = FusedLAMB(
-            [
-                {"params": params, "lr": lr, "weight_decay": weight_decay},
-                {"params": bias_params, "lr": bias_lr, "weight_decay": bias_weight_decay}
-            ],
-            lr, betas=(cfg.SOLVER.BETA1, cfg.SOLVER.BETA2), eps=1e-7, 
-            grad_averaging=False, bias_correction=True)
-    elif cfg.SOLVER.OPTIMIZER == "SGD":
-        optimizer = FusedSGD(
-            [
-                {"params": params, "lr": lr, "weight_decay": weight_decay},
-                {"params": bias_params, "lr": bias_lr, "weight_decay": bias_weight_decay}
-            ],
-            lr, momentum=cfg.SOLVER.MOMENTUM)
-    elif cfg.SOLVER.OPTIMIZER == "MLPerfSGD":
-        optimizer = MLPerfFusedSGD(
+
+    is_fp16 = (cfg.DTYPE == "float16")
+    if is_fp16: # with FP16_Optimizer wrapper
+        if cfg.SOLVER.OPTIMIZER == "NovoGrad":
+            optimizer = FusedNovoGrad(
+                [
+                    {"params": params, "lr": lr, "weight_decay": weight_decay},
+                    {"params": bias_params, "lr": bias_lr, "weight_decay": bias_weight_decay}
+                ],
+                lr, betas=(cfg.SOLVER.BETA1, cfg.SOLVER.BETA2), eps=1e-7, grad_averaging=False, init_zero=False, reg_inside_moment=True, bias_correction=True)
+        elif cfg.SOLVER.OPTIMIZER == "SGD":
+            optimizer = FusedSGD(
+                [
+                    {"params": params, "lr": lr, "weight_decay": weight_decay},
+                    {"params": bias_params, "lr": bias_lr, "weight_decay": bias_weight_decay}
+                ],
+                lr, momentum=cfg.SOLVER.MOMENTUM)
+        elif cfg.SOLVER.OPTIMIZER == "MLPerfSGD":
+            optimizer = MLPerfFusedSGD(
+                [
+                    {"params": params, "lr": lr, "weight_decay": weight_decay},
+                    {"params": bias_params, "lr": bias_lr, "weight_decay": bias_weight_decay}
+                ],
+                lr, momentum=cfg.SOLVER.MOMENTUM)
+        else:
+            raise NotImplementedError("Available optimizers are SGD, MLPerfSGD, and NovoGrad")
+    else: # without FP16_Optimizer wrapper
+        optimizer = apex.optimizers.FusedSGD(
             [
                 {"params": params, "lr": lr, "weight_decay": weight_decay},
                 {"params": bias_params, "lr": bias_lr, "weight_decay": bias_weight_decay}
             ],
             lr, momentum=cfg.SOLVER.MOMENTUM)
-    else:
-        raise NotImplementedError("Available optimizers are SGD, MLPerfSGD, and NovoGrad")
 
     return optimizer
 

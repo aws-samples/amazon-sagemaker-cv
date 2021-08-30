@@ -56,12 +56,10 @@ class Polygons(object):
     polygons
     """
 
-    def __init__(self, polygons, size, mode, pin_memory=False):
+    def __init__(self, polygons, size, mode):
         # assert isinstance(polygons, list), '{}'.format(polygons)
         if isinstance(polygons, list):
             polygons = [torch.as_tensor(p, dtype=torch.float32) for p in polygons]
-            if pin_memory:
-                polygons = [p.pin_memory() for p in polygons]
         elif isinstance(polygons, Polygons):
             polygons = polygons.polygons
 
@@ -136,11 +134,6 @@ class Polygons(object):
             mask = torch.from_numpy(mask)
             # TODO add squeeze?
             return mask
-        
-    def to(self, device, **kwargs):
-        #self.polygons = [p.to(device) for p in self.polygons]
-        self.polygons = [p.to(device, non_blocking=True) for p in self.polygons]
-        return self
 
     def __repr__(self):
         s = self.__class__.__name__ + "("
@@ -156,7 +149,7 @@ class SegmentationMask(object):
     This class stores the segmentations for all objects in the image
     """
 
-    def __init__(self, polygons, size, mode=None, pin_memory=False):
+    def __init__(self, polygons, size, mode=None):
         """
         Arguments:
             polygons: a list of list of lists of numbers. The first
@@ -166,7 +159,7 @@ class SegmentationMask(object):
         """
         assert isinstance(polygons, list)
 
-        self.polygons = [Polygons(p, size, mode, pin_memory=pin_memory) for p in polygons]
+        self.polygons = [Polygons(p, size, mode) for p in polygons]
         self.size = size
         self.mode = mode
 
@@ -194,8 +187,7 @@ class SegmentationMask(object):
             scaled.append(polygon.resize(size, *args, **kwargs))
         return SegmentationMask(scaled, size=size, mode=self.mode)
 
-    def to(self, device, **kwargs):
-        self.polygons = [p.to(device) for p in self.polygons]
+    def to(self, *args, **kwargs):
         return self
 
     def __getitem__(self, item):

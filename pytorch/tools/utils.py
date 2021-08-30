@@ -66,3 +66,20 @@ def is_sm_dist():
 
 def get_herring_world():
     return {"machine_rank": 0, "number_of_processes": 8, "size": 8}
+
+def config_check(cfg):
+    """Check for incompatible settings in configuration
+    """
+    assert cfg.DTYPE in ["float32", "float16", "amp"], \
+    f"DTYPE {cfg.DTYPE} not available. Available DTPYEs are float32, float16, and amp"
+    if cfg.NHWC:
+        assert cfg.MODEL.RESNETS.TRANS_FUNC.endswith("NHWC"), \
+        "When using NHWC, TRANS_FUNC must be NHWC compatible, BottleneckWithFixedBatchNormNHWC"
+        assert cfg.DTYPE=="float16", "NHWC currently only available with DTYPE float16"
+    if cfg.DTYPE=="amp" and "AMP_Hook" not in cfg.HOOKS:
+        print("Adding AMP_Hook")
+        cfg.HOOKS.append("AMP_Hook")
+    if cfg.DTYPE=="float16" and "FP16_Hook" not in cfg.HOOKS:
+        print("Adding FP16_Hook")
+        cfg.HOOKS.append("FP16_Hook")
+    return

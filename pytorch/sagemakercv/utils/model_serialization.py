@@ -87,7 +87,6 @@ def is_layer_nhwc_eligible(name):
     is_nhwc = is_nhwc or ('mask' in name and 'fcn_logits' not in name)
     # include C4 case as well
     is_nhwc = is_nhwc or ('box' in name and 'layer4' in name)
-    is_nhwc = is_nhwc or ('mask_fcn_logits' in name)
     return is_nhwc 
 
 # Transposes model weight to NHWC for the given state_dict key

@@ -1,8 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 from . import transforms as T
 
-
-def build_transforms(cfg, is_train=True, is_fp16=True, is_hybrid=False):
+def build_transforms(cfg, is_train=True, is_fp16=True):
     if is_train:
         min_size = cfg.INPUT.MIN_SIZE_TRAIN
         max_size = cfg.INPUT.MAX_SIZE_TRAIN
@@ -16,14 +15,16 @@ def build_transforms(cfg, is_train=True, is_fp16=True, is_hybrid=False):
     normalize_transform = T.Normalize(
         mean=cfg.INPUT.PIXEL_MEAN, std=cfg.INPUT.PIXEL_STD, to_bgr255=to_bgr255
     )
-
-    if is_hybrid:
+    
+    if is_train:
         ops = [
-                  T.Resize(min_size, max_size),
-                  T.RandomHorizontalFlip(flip_prob),
-                  T.ToHalf(),
-                  normalize_transform
-              ]
+            T.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1),
+            T.Resize(min_size, max_size),
+            T.RandomHorizontalFlip(flip_prob),
+            T.ToTensor(),
+            normalize_transform
+        ]
+        
     else:
         ops = [
                   T.Resize(min_size, max_size),
@@ -31,8 +32,8 @@ def build_transforms(cfg, is_train=True, is_fp16=True, is_hybrid=False):
                   T.ToTensor(),
                   normalize_transform
               ]
-        if is_fp16:
-            ops.append(T.ToHalf())
+    if is_fp16:
+        ops.append(T.ToHalf())
     transform = T.Compose(ops)
 
     return transform

@@ -29,7 +29,7 @@ def is_sm():
         return True
     return False
 
-def is_herring():
+def is_smddprun():
     """When running on a Herring cluster, check if using smddprun
     """
     herring_env = os.environ.get('HERRING', None)
@@ -38,7 +38,7 @@ def is_herring():
     return True
 
 # Temporary solution to determine if we're using SM data parallel
-use_herring = is_sm_dist() or is_herring()
+use_herring = is_sm_dist() or is_smddprun()
 if use_herring:
     import smdistributed.dataparallel.torch.distributed as dist
 else:

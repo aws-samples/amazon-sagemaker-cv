@@ -4,6 +4,7 @@ import random
 import torch
 import torchvision
 from torchvision.transforms import functional as F
+import numpy as np
 
 
 class Compose(object):
@@ -11,7 +12,7 @@ class Compose(object):
         self.transforms = transforms
 
     def __call__(self, image, target):
-        for i, t in enumerate(self.transforms):
+        for t in self.transforms:
             image, target = t(image, target)
         return image, target
 
@@ -55,19 +56,9 @@ class Resize(object):
         return (oh, ow)
 
     def __call__(self, image, target):
-        if isinstance(image, torch.Tensor):
-            image_size = image.shape[-2:]
-            image_size = (image_size[1], image_size[0])
-        else:
-            image_size = image.size
-        size = self.get_size(image_size)
+        size = self.get_size(image.size)
         image = F.resize(image, size)
-        if isinstance(image, torch.Tensor):
-            image_size = image.shape[-2:]
-            image_size = (image_size[1], image_size[0])
-        else:
-            image_size = image.size
-        target = target.resize(image_size)
+        target = target.resize(image.size)
         return image, target
 
 
@@ -84,10 +75,7 @@ class RandomHorizontalFlip(object):
 
 class ToTensor(object):
     def __call__(self, image, target):
-        if isinstance(image, torch.Tensor):
-            return F.convert_image_dtype(image, dtype=torch.float32), target
-        else:
-            return F.to_tensor(image), target
+        return F.to_tensor(image), target
 
 
 class Normalize(object):
@@ -95,35 +83,25 @@ class Normalize(object):
         self.mean = mean
         self.std = std
         self.to_bgr255 = to_bgr255
-        self.bgr255_indexes = None
 
     def __call__(self, image, target):
         if self.to_bgr255:
-            if image.is_cuda:
-                if self.bgr255_indexes is None:
-                    self.bgr255_indexes = torch.tensor([2, 1, 0], dtype=torch.int64, pin_memory=True).to(device=image.device, non_blocking=True)
-                image = image[self.bgr255_indexes] * 255
-            else:
-                image = image[[2, 1, 0]] * 255
-        if not isinstance(self.mean, torch.Tensor):
-            if image.is_cuda:
-                self.mean = torch.tensor(self.mean, dtype=image.dtype, pin_memory=True).to(device=image.device, non_blocking=True)
-                self.std = torch.tensor(self.std, dtype=image.dtype, pin_memory=True).to(device=image.device, non_blocking=True)
-            else:
-                self.mean = torch.tensor(self.mean, dtype=image.dtype, device=image.device)
-                self.std = torch.tensor(self.std, dtype=image.dtype, device=image.device)
-            if self.mean.ndim == 1:
-                self.mean = self.mean.view(-1, 1, 1)
-            if self.std.ndim == 1:
-                self.std = self.std.view(-1, 1, 1)
-        image.sub_(self.mean)
-        image.div_(self.std)
+            image = image[[2, 1, 0]] * 255
+            
+        image = F.normalize(image, mean=self.mean, std=self.std)
         return image, target
 
 class ToHalf(object):
     def __call__(self, image, target):
-        return F.convert_image_dtype(image, dtype=torch.float16), target
-
-class ToFloat(object):
+        return image.half(), target
+    
+class ColorJitter(object):
+    def __init__(self, brightness=0., contrast=0., saturation=0., hue=0.):
+        self.jitter = torchvision.transforms.ColorJitter(brightness=brightness, 
+                                                         contrast=contrast, 
+                                                         saturation=saturation, 
+                                                         hue=hue)
+        
     def __call__(self, image, target):
-        return F.convert_image_dtype(image, dtype=torch.float32), target
+        image = self.jitter(image)
+        return image, target
