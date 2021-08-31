@@ -3,18 +3,15 @@ import os
 import subprocess
 import json
 from utils import get_training_world, unarchive_data
-from datetime import datetime
 
 if __name__ == "__main__":
-    start_time = datetime.now()
+    
     print('Starting training...')
-    # print("Training started at {}".format(start_time))
     world = get_training_world()
     sm_args = json.loads(os.environ["SM_HPS"])
-    # if "unarchive" in sm_args:
-    #     data_dir = sm_args.pop("unarchive")
-    #     unarchive_data(data_dir)
-    #     print("Unarchive completed in {}".format(datetime.now() - start_time))
+    if "unarchive" in sm_args:
+        data_dir = sm_args.pop("unarchive")
+        unarchive_data(data_dir)
     args = [f"--{key} {value}" for key, value in sm_args.items()]
     launch_config = ["python -m torch.distributed.launch", 
                      "--nnodes", str(world['number_of_machines']), 

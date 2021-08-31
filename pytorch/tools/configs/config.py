@@ -4,6 +4,7 @@ import os
 
 from yacs.config import CfgNode as CN
 
+
 # -----------------------------------------------------------------------------
 # Convention about Training / Test specific parameters
 # -----------------------------------------------------------------------------
@@ -19,31 +20,11 @@ from yacs.config import CfgNode as CN
 # -----------------------------------------------------------------------------
 
 _C = CN()
-# AMP otimization level
-# O0 is fully FP32
-# O1 weights are stored in FP32, but some ops are performed in FP16
-# O1 is the recommended setting for stability
-# O2 Mostly FP16, model cast to FP16 except batch norm
-# O2 is faster by introduces some stability issues
-# O3 Pure FP16, faster still, but less stable
-# O4 FP16 and NHWC uses custom ops to go even faster
-# O4 is MLPerf settings, crazy fast, but hard to tune
-# and keep stable
-_C.OPT_LEVEL = "O1"
-# Distribution type 
-# torch = Pytorch DDP
-# smd = Sagemaker Distributed Data Parallel
-# smd accelerates training when running distributed on multiple 
-# p3.16, p3dn, and p4d instances. It is only available on these
-# instance types.
-# auto = Automatically enable smd when available, otherwise use
-# pytorch DDP
-_C.DISTRIBUTION = "auto"
-_C.OUTPUT_DIR = "/opt/ml/checkpoints"
 
 _C.MODEL = CN()
 _C.MODEL.RPN_ONLY = False
 _C.MODEL.MASK_ON = False
+_C.MODEL.RETINANET_ON = False
 _C.MODEL.KEYPOINT_ON = False
 _C.MODEL.DEVICE = "cuda"
 _C.MODEL.META_ARCHITECTURE = "GeneralizedRCNN"
@@ -53,6 +34,7 @@ _C.MODEL.CLS_AGNOSTIC_BBOX_REG = False
 # the path in paths_catalog. Else, it will use it as the specified absolute
 # path
 _C.MODEL.WEIGHT = '/opt/ml/input/data/weights/pytorch/R-50.pkl'
+
 
 # -----------------------------------------------------------------------------
 # INPUT
@@ -108,6 +90,7 @@ _C.DATALOADER.SIZE_DIVISIBILITY = 0
 # are not batched with portrait images.
 _C.DATALOADER.ASPECT_RATIO_GROUPING = True
 
+
 # ---------------------------------------------------------------------------- #
 # Backbone options
 # ---------------------------------------------------------------------------- #
@@ -132,6 +115,13 @@ _C.MODEL.BACKBONE.USE_GN = False
 _C.MODEL.FPN = CN()
 _C.MODEL.FPN.USE_GN = False
 _C.MODEL.FPN.USE_RELU = False
+
+# ---------------------------------------------------------------------------- #
+# YOLO FPN options
+# ---------------------------------------------------------------------------- #
+
+_C.MODEL.FPN.IN_CHANNELS = [1024, 512, 256]
+_C.MODEL.FPN.OUT_CHANNELS = [512, 256, 128]
 
 # ---------------------------------------------------------------------------- #
 # Group Norm options
@@ -188,7 +178,6 @@ _C.MODEL.RPN.MIN_SIZE = 0
 # all FPN levels
 _C.MODEL.RPN.FPN_POST_NMS_TOP_N_TRAIN = 2000
 _C.MODEL.RPN.FPN_POST_NMS_TOP_N_TEST = 2000
-_C.MODEL.RPN.FPN_POST_NMS_TOP_N_PER_IMAGE = True
 # Custom rpn head, empty to use default conv or separable conv
 _C.MODEL.RPN.RPN_HEAD = "SingleConvRPNHead"
 _C.MODEL.RPN.LS = 0.0
@@ -213,6 +202,7 @@ _C.MODEL.ROI_HEADS.BBOX_REG_WEIGHTS = (10., 10., 5., 5.)
 _C.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512
 # Target fraction of RoI minibatch that is labeled foreground (i.e. class > 0)
 _C.MODEL.ROI_HEADS.POSITIVE_FRACTION = 0.25
+_C.MODEL.ROI_HEADS.LS = 0.0
 # Only used on test mode
 
 # Minimum score threshold (assuming scores in a [0, 1] range); a value chosen to
@@ -282,8 +272,6 @@ _C.MODEL.ROI_MASK_HEAD.POSTPROCESS_MASKS_THRESHOLD = 0.5
 _C.MODEL.ROI_MASK_HEAD.DILATION = 1
 # GN
 _C.MODEL.ROI_MASK_HEAD.USE_GN = False
-#Label smoothing
-_C.MODEL.ROI_MASK_HEAD.LS = 0.0
 
 _C.MODEL.ROI_KEYPOINT_HEAD = CN()
 _C.MODEL.ROI_KEYPOINT_HEAD.FEATURE_EXTRACTOR = "KeypointRCNNFeatureExtractor"
@@ -296,6 +284,23 @@ _C.MODEL.ROI_KEYPOINT_HEAD.CONV_LAYERS = tuple(512 for _ in range(8))
 _C.MODEL.ROI_KEYPOINT_HEAD.RESOLUTION = 14
 _C.MODEL.ROI_KEYPOINT_HEAD.NUM_CLASSES = 17
 _C.MODEL.ROI_KEYPOINT_HEAD.SHARE_BOX_FEATURE_EXTRACTOR = True
+
+# ---------------------------------------------------------------------------- #
+# YOLO Options
+# ---------------------------------------------------------------------------- #
+
+_C.MODEL.YOLO = CN()
+# _C.MODEL.YOLO.BASE_SIZES = [[(116, 90), (156, 198), (373, 326)],
+#                             [(30, 61), (62, 45), (59, 119)],
+#                             [(10, 13), (16, 30), (33, 23)]]
+_C.MODEL.YOLO.BASE_SIZES = [[(90, 116), (198, 156), (326, 373)],
+                            [(61, 30), (45, 62), (119, 59)],
+                            [(13, 10), (30, 16), (23, 33)]]
+_C.MODEL.YOLO.STRIDES = [32, 16, 8]
+_C.MODEL.YOLO.CLASSES = 80
+_C.MODEL.YOLO.IN_CHANNELS = (512, 256, 128)
+_C.MODEL.YOLO.OUT_CHANNELS = (1024, 512, 256)
+_C.MODEL.YOLO.STRIDES = (32, 16, 8)
 
 # ---------------------------------------------------------------------------- #
 # ResNe[X]t options (ResNets = {ResNet, ResNeXt}
@@ -315,7 +320,7 @@ _C.MODEL.RESNETS.WIDTH_PER_GROUP = 64
 _C.MODEL.RESNETS.STRIDE_IN_1X1 = True
 
 # Residual transformation function
-_C.MODEL.RESNETS.TRANS_FUNC = "BottleneckWithFixedBatchNorm"
+_C.MODEL.RESNETS.TRANS_FUNC = "BottleneckWithFixedBatchNormNHWC"
 # ResNet's stem function (conv1 and pool1)
 _C.MODEL.RESNETS.STEM_FUNC = "StemWithFixedBatchNorm"
 
@@ -325,11 +330,72 @@ _C.MODEL.RESNETS.RES5_DILATION = 1
 _C.MODEL.RESNETS.RES2_OUT_CHANNELS = 256
 _C.MODEL.RESNETS.STEM_OUT_CHANNELS = 64
 
+
 # ---------------------------------------------------------------------------- #
 # Cascade Options
 # ---------------------------------------------------------------------------- #
 _C.MODEL.ROI_HEADS.CASCADE_STAGES = 3
 _C.MODEL.ROI_HEADS.CASCADE_STAGE_WEIGHTS = (1., 1., 1.)
+
+# ---------------------------------------------------------------------------- #
+# RetinaNet Options (Follow the Detectron version)
+# ---------------------------------------------------------------------------- #
+_C.MODEL.RETINANET = CN()
+
+# This is the number of foreground classes and background.
+_C.MODEL.RETINANET.NUM_CLASSES = 81
+
+# Anchor aspect ratios to use
+_C.MODEL.RETINANET.ANCHOR_SIZES = (32, 64, 128, 256, 512)
+_C.MODEL.RETINANET.ASPECT_RATIOS = (0.5, 1.0, 2.0)
+_C.MODEL.RETINANET.ANCHOR_STRIDES = (8, 16, 32, 64, 128)
+_C.MODEL.RETINANET.STRADDLE_THRESH = 0
+
+# Anchor scales per octave
+_C.MODEL.RETINANET.OCTAVE = 2.0
+_C.MODEL.RETINANET.SCALES_PER_OCTAVE = 3
+
+# Use C5 or P5 to generate P6
+_C.MODEL.RETINANET.USE_C5 = True
+
+# Convolutions to use in the cls and bbox tower
+# NOTE: this doesn't include the last conv for logits
+_C.MODEL.RETINANET.NUM_CONVS = 4
+
+# Weight for bbox_regression loss
+_C.MODEL.RETINANET.BBOX_REG_WEIGHT = 4.0
+
+# Smooth L1 loss beta for bbox regression
+_C.MODEL.RETINANET.BBOX_REG_BETA = 0.11
+
+# During inference, #locs to select based on cls score before NMS is performed
+# per FPN level
+_C.MODEL.RETINANET.PRE_NMS_TOP_N = 1000
+
+# IoU overlap ratio for labeling an anchor as positive
+# Anchors with >= iou overlap are labeled positive
+_C.MODEL.RETINANET.FG_IOU_THRESHOLD = 0.5
+
+# IoU overlap ratio for labeling an anchor as negative
+# Anchors with < iou overlap are labeled negative
+_C.MODEL.RETINANET.BG_IOU_THRESHOLD = 0.4
+
+# Focal loss parameter: alpha
+_C.MODEL.RETINANET.LOSS_ALPHA = 0.25
+
+# Focal loss parameter: gamma
+_C.MODEL.RETINANET.LOSS_GAMMA = 2.0
+
+# Prior prob for the positives at the beginning of training. This is used to set
+# the bias init for the logits layer
+_C.MODEL.RETINANET.PRIOR_PROB = 0.01
+
+# Inference cls score threshold, anchors with score > INFERENCE_TH are
+# considered for inference
+_C.MODEL.RETINANET.INFERENCE_TH = 0.05
+
+# NMS threshold used in RetinaNet
+_C.MODEL.RETINANET.NMS_TH = 0.4
 
 # ---------------------------------------------------------------------------- #
 # Solver
@@ -357,8 +423,11 @@ _C.SOLVER.CHECKPOINT_PERIOD = 2500
 
 _C.SOLVER.OPTIMIZER = "SGD"
 _C.SOLVER.BETA1 = 0.9
-_C.SOLVER.BETA2 = 0.5
+_C.SOLVER.BETA2 = 0.25
 _C.SOLVER.LR_SCHEDULE = "MULTISTEP"
+
+# AMP otimization level
+_C.SOLVER.OPT_LEVEL = "O1"
 
 _C.SOLVER.GRADIENT_CLIPPING = 0.0
 
@@ -385,10 +454,31 @@ _C.TEST.PER_EPOCH_EVAL = True
 # ---------------------------------------------------------------------------- #
 # Misc options
 # ---------------------------------------------------------------------------- #
-_C.SAVE_CHECKPOINTS = True
+_C.OUTPUT_DIR = "."
+
+_C.PATHS_CATALOG = os.path.join(os.path.dirname(__file__), "paths_catalog.py")
+_C.SAVE_CHECKPOINTS = False
 _C.SAVE_INTERVAL = 1
+_C.PER_EPOCH_EVAL = True
 _C.LOG_INTERVAL = 50
+# Precision of input, allowable: (float32, float16)
+_C.DTYPE = "float16"
+# Enable verbosity in apex.amp
+_C.AMP_VERBOSE = False
+# Use NHWC layout for eligible convolutions
+_C.NHWC = False
 # Disable reduced logging
 _C.DISABLE_REDUCED_LOGGING = False
 # Runner hooks
 _C.HOOKS = []
+# Distribution type
+_C.DISTRIBUTION = 'torch'
+
+# ---------------------------------------------------------------------------- #
+# MLPerf-specific options
+# ---------------------------------------------------------------------------- #
+_C.MLPERF = CN()
+
+# Accuracy targets for early termination
+_C.MLPERF.MIN_BBOX_MAP = 0.377
+_C.MLPERF.MIN_SEGM_MAP = 0.339

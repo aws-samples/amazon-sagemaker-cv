@@ -1,7 +1,7 @@
-ARG REGION=us-west-2
-ARG DLC_ACCOUNT=763104351884
-ARG FRAMEWORK=pytorch-training
-ARG VERSION=1.8.1-gpu-py36-cu111-ubuntu18.04
+ARG REGION=$fill in region$
+ARG DLC_ACCOUNT=$fill acct#$
+ARG FRAMEWORK=$fill framework#$
+ARG VERSION=$fill version#$
 FROM ${DLC_ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/${FRAMEWORK}:${VERSION}
 
 # add CUDNN header files

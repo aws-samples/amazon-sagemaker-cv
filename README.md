@@ -1,11 +1,27 @@
-## My Project
+## Yolov3 for SMCV
 
-TODO: Fill this README out!
+This branch is staging for merge yolov3 into smcv.
 
-Be sure to:
+Yolov3 files include: 
+  pytorch/sagemakercv/detection/backbone/darknet.py
+  pytorch/sagemakercv/detection/dense_heads/inference.py
+  pytorch/sagemakercv/detection/dense_heads/yolo_anchor_generator.py
+  pytorch/sagemakercv/detection/dense_heads/yolo_head.py
+  pytorch/sagemakercv/detection/dense_heads/yolo_loss.py
+  pytorch/sagemakercv/detection/detector/yolo_detector.py
 
-* Change the title in this README
-* Edit your repository description on GitHub
+Files/notebooks to run yolov3:
+  pytorch/sagemakercv/yolo_scratch.ipynb
+  pytorch/sagemakercv/yolo_tune.ipynb
+  pytorch/tools/ben_testing.ipynb
+  pytorch/tools/configs/st_yolo.yaml
+  pytorch/tools/run_yolo.ipynb
+  pytorch/tools/train_yolo.py
+  pytorch/tools/train_yolo.sh
+  pytorch/tools/yolo_scratch.ipynb
+
+Scripts to train darknet:
+  pytorch/darknet_trainer
 
 ## Security
 
