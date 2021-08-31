@@ -1,3 +1,5 @@
+# yolo anchor generator to generate anchor boxes
+
 import torch
 from torch.nn.modules.utils import _pair
 from sagemakercv.core.structures.bounding_box import BoxList

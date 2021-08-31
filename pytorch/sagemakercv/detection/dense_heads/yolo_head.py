@@ -1,3 +1,5 @@
+# Yolo head class that takes in fpn results and calculate prediction
+
 import torch
 from sagemakercv.layers.conv_module import ConvModule
 from sagemakercv.detection import registry

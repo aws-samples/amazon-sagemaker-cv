@@ -4,7 +4,6 @@ import torch.nn.functional as F
 from torch import nn
 from sagemakercv.detection import registry
 from sagemakercv.core.box_coder import BoxCoder
-from sagemakercv.detection.rpn.retinanet.retinanet import build_retinanet
 from .loss import make_rpn_loss_evaluator
 from .anchor_generator import make_anchor_generator
 from .inference import make_rpn_postprocessor
@@ -25,7 +24,7 @@ class RPNHead(nn.Module):
             num_anchors (int): number of anchors to be predicted
         """
         super(RPNHead, self).__init__()
-        self.nhwc = cfg.NHWC
+        self.nhwc = cfg.OPT_LEVEL=="O4"
         conv = Conv2d_NHWC if self.nhwc else nn.Conv2d
         self.conv = nn.Conv2d(
             in_channels, in_channels, kernel_size=3, stride=1, padding=1
@@ -59,13 +58,13 @@ class RPNModule(torch.nn.Module):
 
         self.cfg = cfg.clone()
 
-        anchor_generator = make_anchor_generator(cfg)
+        '''anchor_generator = make_anchor_generator(cfg)
 
         in_channels = cfg.MODEL.BACKBONE.OUT_CHANNELS
         rpn_head = registry.RPN_HEADS[cfg.MODEL.RPN.RPN_HEAD]
         head = rpn_head(
             cfg, in_channels, anchor_generator.num_anchors_per_location()[0]
-        )
+        )'''
 
         rpn_box_coder = BoxCoder(weights=(1.0, 1.0, 1.0, 1.0))
 
@@ -74,14 +73,14 @@ class RPNModule(torch.nn.Module):
 
         loss_evaluator = make_rpn_loss_evaluator(cfg, rpn_box_coder)
 
-        self.anchor_generator = anchor_generator
-        self.head = head
+        '''self.anchor_generator = anchor_generator
+        self.head = head'''
         self.box_selector_train = box_selector_train
         self.box_selector_test = box_selector_test
         self.loss_evaluator = loss_evaluator
-        self.nhwc = cfg.NHWC
+        self.nhwc = cfg.OPT_LEVEL=="O4"
 
-    def forward(self, images, features, targets=None):
+    def forward(self, images, anchor_boxes, anchor_visibility, objectness, rpn_box_regression, targets=None):
         """
         Arguments:
             images (ImageList): images for which we want to compute the predictions
@@ -98,14 +97,13 @@ class RPNModule(torch.nn.Module):
         """
         # For NHWC case, only RPN head is implemented in NHWC; everything else in RPN is NCHW
         # For NHWC, features is a two element list with features in NHWC and NCHW layout
-        objectness, rpn_box_regression = self.head(features)
-        anchors, batched_anchor_data = self.anchor_generator(images, features)
+        batched_anchor_data = [anchor_boxes, anchor_visibility, [tuple(image_size_wh) for image_size_wh in images.image_sizes_wh]]
         if self.training:
-            return self._forward_train(batched_anchor_data, objectness, rpn_box_regression, targets)
+            return self._forward_train(batched_anchor_data, objectness, rpn_box_regression, images.image_sizes_tensor, targets)
         else:
-            return self._forward_test(batched_anchor_data, objectness, rpn_box_regression)
+            return self._forward_test(batched_anchor_data, objectness, rpn_box_regression, images.image_sizes_tensor)
 
-    def _forward_train(self, anchors, objectness, rpn_box_regression, targets):
+    def _forward_train(self, anchors, objectness, rpn_box_regression, image_shapes_cat, targets):
         if self.cfg.MODEL.RPN_ONLY:
             # When training an RPN-only model, the loss is determined by the
             # predicted objectness and rpn_box_regression values and there is
@@ -117,7 +115,7 @@ class RPNModule(torch.nn.Module):
             # sampled into a training batch.
             with torch.no_grad():
                 boxes = self.box_selector_train(
-                    anchors, objectness, rpn_box_regression, targets
+                    anchors, objectness, rpn_box_regression, image_shapes_cat, targets
                 )
         loss_objectness, loss_rpn_box_reg = self.loss_evaluator(
             anchors, objectness, rpn_box_regression, targets
@@ -128,8 +126,8 @@ class RPNModule(torch.nn.Module):
         }
         return boxes, losses
 
-    def _forward_test(self, anchors, objectness, rpn_box_regression):
-        boxes = self.box_selector_test(anchors, objectness, rpn_box_regression)
+    def _forward_test(self, anchors, objectness, rpn_box_regression, image_shapes_cat):
+        boxes = self.box_selector_test(anchors, objectness, rpn_box_regression, image_shapes_cat)
         if self.cfg.MODEL.RPN_ONLY:
             # For end-to-end models, the RPN proposals are an intermediate state
             # and don't bother to sort them in decreasing score order. For RPN-only
@@ -146,7 +144,18 @@ def build_rpn(cfg):
     """
     This gives the gist of it. Not super important because it doesn't change as much
     """
-    if cfg.MODEL.RETINANET_ON:
-        return build_retinanet(cfg)
 
     return RPNModule(cfg)
+
+def build_rpn_head(cfg):
+    """
+    Return RPN head only, used when RPN head is included in backbone.
+    """
+    anchor_generator = make_anchor_generator(cfg)
+
+    in_channels = cfg.MODEL.BACKBONE.OUT_CHANNELS
+    rpn_head = registry.RPN_HEADS[cfg.MODEL.RPN.RPN_HEAD]
+    head = rpn_head(
+        cfg, in_channels, anchor_generator.num_anchors_per_location()[0]
+    )
+    return anchor_generator, head

@@ -1,3 +1,5 @@
+# calculate yolo loss for training the yolo model
+
 import torch
 from torch.nn import functional as F
 

@@ -1,4 +1,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+# revised to suit yolov3 prediction style
+
 import torch
 import torch.nn.functional as F
 from torch import nn

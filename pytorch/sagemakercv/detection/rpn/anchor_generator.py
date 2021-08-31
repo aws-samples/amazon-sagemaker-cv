@@ -155,7 +155,9 @@ class AnchorGenerator(nn.Module):
             else:
                 inds_inside = torch.ones(anchors.shape[0], dtype=torch.bool, device=device)
         else:
-            anchors, inds_inside = _C.anchor_generator(image_sizes, (grid_height, grid_width), cell_anchors, stride, self.straddle_thresh)
+            anchors, inds_inside = _C.anchor_generator(image_height, image_width,
+                                                       (grid_height, grid_width), 
+                                                       cell_anchors, stride, self.straddle_thresh)
 
         anchors = BoxList(anchors, (image_width, image_height), mode="xyxy")
         anchors.add_field("visibility", inds_inside)
@@ -165,11 +167,11 @@ class AnchorGenerator(nn.Module):
         return anchors
 
 
-    def forward(self, image_list, feature_maps):
+    def forward(self, image_sizes_tensor, feature_maps):
         grid_sizes = [feature_map.shape[-2:] for feature_map in feature_maps]
         per_image_boxlist = []
         anchors = []
-        for i, (image_height, image_width) in enumerate(image_list.image_sizes):
+        for i, (image_width, image_height) in enumerate(image_sizes_tensor):
             anchors_in_image = []
             for j, (feature_map_level, stride, cell_anchor) in enumerate(zip(
                 feature_maps, self.strides, self.cell_anchors)
@@ -188,8 +190,8 @@ class AnchorGenerator(nn.Module):
         anchor_visibility = torch.cat([box.get_field("visibility") for box in per_image_boxlist]).view( \
                 len(per_image_boxlist), -1) if len(per_image_boxlist) > 1 else \
                 per_image_boxlist[0].get_field("visibility").view(1, -1)
-        image_sizes = [box.size for box in per_image_boxlist]
-        return anchors, [anchor_boxes, anchor_visibility, image_sizes]
+        # image_sizes = [box.size for box in per_image_boxlist]
+        return anchor_boxes, anchor_visibility
 
 
 def make_anchor_generator(config):

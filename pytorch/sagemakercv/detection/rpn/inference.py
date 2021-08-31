@@ -8,7 +8,6 @@ from sagemakercv.core.structures.boxlist_ops import cat_boxlist
 from sagemakercv.core.structures.boxlist_ops import boxlist_nms
 from sagemakercv.core.structures.boxlist_ops import remove_small_boxes
 from sagemakercv.core.utils import cat
-from .utils import permute_and_flatten
 from torch.nn.utils.rnn import pad_sequence
 from sagemakercv import _C as C
 
@@ -26,6 +25,8 @@ class RPNPostProcessor(torch.nn.Module):
         min_size,
         box_coder=None,
         fpn_post_nms_top_n=None,
+        per_image_search=False,
+        cache_constants=False
     ):
         """
         Arguments:
@@ -41,6 +42,8 @@ class RPNPostProcessor(torch.nn.Module):
         self.post_nms_top_n = post_nms_top_n
         self.nms_thresh = nms_thresh
         self.min_size = min_size
+        self.per_image_search = per_image_search
+        self.cached_constants = {} if cache_constants else None
 
         if box_coder is None:
             box_coder = BoxCoder(weights=(1.0, 1.0, 1.0, 1.0))
@@ -228,37 +231,51 @@ class RPNPostProcessor(torch.nn.Module):
           sampled_boxes_post_nms.append(per_level_boxlist)
         return sampled_boxes_post_nms                
 
-    def forward(self, anchors, objectness, box_regression, targets=None):
+    def compute_constant_tensors(self, N, A, H_max, W_max, num_fmaps, anchors, objectness):
+        device = anchors[0].device
+        num_anchors_per_level=[]
+        for l in range(len(objectness)):
+            num_anchors_per_level.append(objectness[l].view(N, -1).size(1))
+        num_anchors_per_level = torch.tensor(num_anchors_per_level, device = device)
+
+        # batched height, width data for feature maps
+        fmap_size_list = [[obj.shape[2],obj.shape[3]] for obj in objectness]
+        fmap_size_cat = torch.tensor([[obj.shape[2], obj.shape[3]] for obj in objectness], device = device)
+        
+        num_max_proposals = [self.pre_nms_top_n] * (N * num_fmaps)
+        num_max_props_tensor = torch.tensor(num_max_proposals, device = device, dtype = torch.int32)
+
+        return N, A, H_max, W_max, num_fmaps, num_anchors_per_level, fmap_size_cat, num_max_proposals, num_max_props_tensor
+
+    def get_constant_tensors(self, anchors, objectness):
+        (N, A, H_max, W_max), num_fmaps = objectness[0].shape, len(objectness)
+        if self.cached_constants is not None:
+            key = (N, A, H_max, W_max, num_fmaps)
+            if key in self.cached_constants:
+                return self.cached_constants[key]
+            else:
+                cc = self.compute_constant_tensors(N, A, H_max, W_max, num_fmaps, anchors, objectness)
+                #print("key = %s :: cc = %s" % (str(key), str(cc)))
+                self.cached_constants[key] = cc
+                return cc
+        else:
+            return self.compute_constant_tensors(N, A, H_max, W_max, num_fmaps, anchors, objectness)
+
+    def forward(self, anchors, objectness, box_regression, image_shapes_cat, targets=None):
         """
         Arguments:
             anchors: list[list[BoxList]]
             objectness: list[tensor]
             box_regression: list[tensor]
-
         Returns:
             boxlists (list[BoxList]): the post-processed anchors, after
                 applying box decoding and NMS
         """
 
         device = anchors[0].device #this is the batched anchors tensor
-        N, A, H_max, W_max = objectness[0].shape
-        num_fmaps = len(objectness)
-        num_anchors_per_level=[]
-        for l in range(len(objectness)):
-            num_anchors_per_level.append(objectness[l].view(N, -1).size(1))
-        num_anchors_per_level = torch.tensor(num_anchors_per_level, device = objectness[0].device)
-        #num_anchors_per_fmap_per_image=[box.bbox.size(0) for anchors_per_image in anchors for box in anchors_per_image]
-        #max_anchor_per_fmap = max(num_anchors_per_fmap_per_image)
-        #total_anchors = sum(num_anchors_per_fmap_per_image)
 
-        # form batched anchor tensor for batched operation
-        #batched_anchor_tensor = torch.zeros([num_images, num_fmaps, max_anchor_per_fmap, 4], dtype = anchors[0][0].bbox.dtype, device = device)
+        N, A, H_max, W_max, num_fmaps, num_anchors_per_level, fmap_size_cat, num_max_proposals, num_max_props_tensor = self.get_constant_tensors(anchors, objectness)
 
-
-        # batched height, width data for feature maps
-        fmap_size_list = [[obj.shape[2],obj.shape[3]] for obj in objectness]
-        fmap_size_cat = torch.tensor([[obj.shape[2], obj.shape[3]] for obj in objectness], device = device)
-        
         # initialize batched objectness, regression tensors and then form them
         batched_objectness_tensor = -1e6 * torch.ones([num_fmaps, N, A * H_max * W_max],  \
                                                         dtype = objectness[0].dtype, device=objectness[0].device)
@@ -275,15 +292,12 @@ class RPNPostProcessor(torch.nn.Module):
 
         batched_anchor_tensor, image_shapes = anchors[0], anchors[2]
 
-        # shapes of input images
-        image_shapes_cat = torch.tensor(image_shapes, device = device).float().view(N, -1)
-
         # generate proposals using a batched kernel
         proposals_gen, objectness_gen, keep_gen = C.GeneratePreNMSUprightBoxesBatched(
                                 N,
                                 A,
                                 H_max*W_max,
-                                max(num_anchors_per_level), #this is actually A*H_max*W_max
+                                A*H_max*W_max,
                                 fmap_size_cat,
                                 num_anchors_per_level,
                                 topk_idx,
@@ -300,8 +314,6 @@ class RPNPostProcessor(torch.nn.Module):
 
         keep_gen = keep_gen.reshape(N * num_fmaps, self.pre_nms_top_n)
         proposals_gen = proposals_gen.reshape(N * num_fmaps * self.pre_nms_top_n, 4)
-        num_max_proposals = [self.pre_nms_top_n] * (N * num_fmaps)    
-        num_max_props_tensor = torch.tensor(num_max_proposals, device=proposals_gen.device, dtype=torch.int32)
 
         # perform batched NMS kernel
         keep_nms_batched = C.nms_batched(proposals_gen, num_max_proposals, num_max_props_tensor, keep_gen, self.nms_thresh).bool()
@@ -325,31 +337,44 @@ class RPNPostProcessor(torch.nn.Module):
                 boxlists.append(boxlist)
             if num_fmaps > 1:
                 boxlists = self.select_over_all_levels(boxlists)
-            return boxlists    
+            return boxlists
 
-        objectness_gen = objectness_gen * keep.float()
-        objectness_gen = objectness_gen.reshape(-1)
-        objectness_kept = objectness_gen
-        # post NMS topN
-        num_keeps = keep.reshape(-1).nonzero().squeeze(1).size(0)
+        if self.per_image_search: # TO-DO: aren't per image and per batch search the same when N == 1
+            # Post NMS per image search
+            objectness_gen.masked_fill_(~keep, -1)
+            proposals_gen.masked_fill_((~keep).unsqueeze(3), -1)
+            proposals_gen = proposals_gen.reshape(N,-1,4)
+            objectness_gen = objectness_gen.reshape(N,-1)
+            objectness = objectness_gen
 
-        _, inds_sorted = torch.topk(objectness_kept, min(self.fpn_post_nms_top_n,num_keeps), dim=0, sorted=False)
-        inds_sorted, _ = inds_sorted.sort()
-        objectness_kept = objectness_gen[inds_sorted]
-        proposals_kept = proposals_gen.reshape(-1 ,4)[inds_sorted]
-        
-        inds_mask = torch.zeros_like(objectness_gen, dtype=torch.uint8)
-        inds_mask[inds_sorted] = 1
-        inds_mask_per_image = inds_mask.reshape(N, -1)
-
-        num_kept_per_image = list(inds_mask_per_image.sum(dim=1))
-        if N > 1: 
-            proposals = pad_sequence(proposals_kept.split(num_kept_per_image, dim=0), batch_first=True, padding_value=-1)
-            objectness = pad_sequence(objectness_kept.split(num_kept_per_image, dim=0), batch_first=True, padding_value=-1)
+            _, inds_post_nms_top_n = torch.topk(objectness, self.fpn_post_nms_top_n, dim=1, sorted=False)
+            inds_post_nms_top_n, _ = inds_post_nms_top_n.sort()
+            objectness = torch.gather(objectness_gen, dim=1, index=inds_post_nms_top_n)
+            batch_inds = torch.arange(N, device=device)[:,None]
+            proposals = proposals_gen[batch_inds, inds_post_nms_top_n]
         else:
-            proposals = proposals_kept.unsqueeze(0)
-            objectness = objectness_kept.unsqueeze(0)
+            # Post NMS per batch search
+            objectness_gen = objectness_gen * keep.float()
+            objectness_gen = objectness_gen.reshape(-1)
+            objectness_kept = objectness_gen
+            num_keeps = (keep.flatten() != 0).sum().int()
 
+            _, inds_post_nms_top_n = torch.topk(objectness_kept, min(self.fpn_post_nms_top_n,num_keeps), dim=0, sorted=False)
+            inds_post_nms_top_n, _ = inds_post_nms_top_n.sort()
+            objectness_kept = objectness_gen[inds_post_nms_top_n]
+            proposals_kept = proposals_gen.reshape(-1 ,4)[inds_post_nms_top_n]
+
+            inds_mask = torch.zeros_like(objectness_gen, dtype=torch.uint8)
+            inds_mask[inds_post_nms_top_n] = 1
+            inds_mask_per_image = inds_mask.reshape(N, -1)
+
+            num_kept_per_image = list(inds_mask_per_image.sum(dim=1))
+            if N > 1:
+                proposals = pad_sequence(proposals_kept.split(num_kept_per_image, dim=0), batch_first=True, padding_value=-1)
+                objectness = pad_sequence(objectness_kept.split(num_kept_per_image, dim=0), batch_first=True, padding_value=-1)
+            else:
+                proposals = proposals_kept.unsqueeze(0)
+                objectness = objectness_kept.unsqueeze(0)
 
         ## make a batched tensor for targets as well
         target_bboxes = [box.bbox for box in targets]
@@ -397,6 +422,7 @@ class RPNPostProcessor(torch.nn.Module):
         return boxlists
 
 def make_rpn_postprocessor(config, rpn_box_coder, is_train):
+    per_image_search = config.MODEL.RPN.FPN_POST_NMS_TOP_N_PER_IMAGE
     fpn_post_nms_top_n = config.MODEL.RPN.FPN_POST_NMS_TOP_N_TRAIN
     if not is_train:
         fpn_post_nms_top_n = config.MODEL.RPN.FPN_POST_NMS_TOP_N_TEST
@@ -415,5 +441,7 @@ def make_rpn_postprocessor(config, rpn_box_coder, is_train):
         min_size=min_size,
         box_coder=rpn_box_coder,
         fpn_post_nms_top_n=fpn_post_nms_top_n,
+        per_image_search=per_image_search,
+        cache_constants=is_train
     )
     return box_selector

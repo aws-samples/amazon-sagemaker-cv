@@ -23,7 +23,7 @@ class MaskRCNNC4Predictor(nn.Module):
             stage2_relative_factor = 2 ** (stage_index - 1)
             res2_out_channels = cfg.MODEL.RESNETS.RES2_OUT_CHANNELS
             num_inputs = res2_out_channels * stage2_relative_factor
-        self.nhwc = cfg.NHWC
+        self.nhwc = cfg.OPT_LEVEL=="O4"
         conv = Conv2d_NHWC if self.nhwc else Conv2d
         conv_transpose = ConvTranspose2d_NHWC if self.nhwc else ConvTranspose2d
         self.conv5_mask = conv_transpose(num_inputs, dim_reduced, 2, 2, 0)

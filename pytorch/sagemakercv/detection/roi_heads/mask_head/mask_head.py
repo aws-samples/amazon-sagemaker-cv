@@ -77,6 +77,5 @@ class ROIMaskHead(torch.nn.Module):
 
         return x, all_proposals, dict(loss_mask=loss_mask)
 
-
 def build_roi_mask_head(cfg):
     return ROIMaskHead(cfg)

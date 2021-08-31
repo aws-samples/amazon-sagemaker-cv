@@ -1,3 +1,5 @@
+# darknet-53 backbone with choice to output darknet results through fc layers or pass in three output for fpn and yolo
+
 import torch
 from torch import nn
 from sagemakercv.detection import registry

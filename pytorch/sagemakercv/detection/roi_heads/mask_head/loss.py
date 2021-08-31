@@ -168,7 +168,7 @@ def make_roi_mask_loss_evaluator(cfg):
 
     loss_evaluator = MaskRCNNLossComputation(
         matcher, cfg.MODEL.ROI_MASK_HEAD.RESOLUTION, 
-        label_smoothing=cfg.MODEL.ROI_HEADS.LS
+        label_smoothing=cfg.MODEL.ROI_MASK_HEAD.LS
     )
 
     return loss_evaluator
