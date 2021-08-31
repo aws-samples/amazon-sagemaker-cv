@@ -15,6 +15,8 @@ from . import samplers
 from .collate_batch import BatchCollator
 from .transforms import build_transforms
 
+from sagemakercv.data.datasets.coco import HybridDataLoader3
+
 DATASETS = Registry()
 
 def build_dataset(dataset_list, transforms, dataset_catalog, is_train=True):
@@ -109,7 +111,8 @@ def make_batch_data_sampler(
     return batch_sampler
 
 @DATASETS.register("COCO")
-def make_coco_dataloader(cfg, is_train=True, is_distributed=False, start_iter=0, random_number_generator=None):
+def make_coco_dataloader(cfg, is_train=True, is_distributed=False, start_iter=0, 
+                         random_number_generator=None, shapes=None):
     num_gpus = get_world_size()
     if is_train:
         images_per_batch = cfg.SOLVER.IMS_PER_BATCH
@@ -131,8 +134,8 @@ def make_coco_dataloader(cfg, is_train=True, is_distributed=False, start_iter=0,
         num_iters = None
         start_iter = 0
     aspect_grouping = [1] if cfg.DATALOADER.ASPECT_RATIO_GROUPING else []
-    is_fp16 = (cfg.DTYPE == "float16") or (cfg.DTYPE == "amp" and cfg.SOLVER.OPT_LEVEL in ['O2', 'O3'])
-    transforms = build_transforms(cfg, is_train, is_fp16)
+    is_fp16 = (cfg.OPT_LEVEL in ['O2', 'O3', 'O4'])
+    transforms = build_transforms(cfg, is_train, is_fp16, False)
     args = dict()
     args['root'] = cfg.INPUT.TRAIN_INPUT_DIR if is_train else cfg.INPUT.VAL_INPUT_DIR
     args['ann_file'] = cfg.INPUT.TRAIN_ANNO_DIR if is_train else cfg.INPUT.VAL_ANNO_DIR
@@ -145,7 +148,7 @@ def make_coco_dataloader(cfg, is_train=True, is_distributed=False, start_iter=0,
     batch_sampler = make_batch_data_sampler(
             dataset, sampler, aspect_grouping, images_per_gpu, num_iters, start_iter, random_number_generator,
         )
-    collator = BatchCollator(cfg.DATALOADER.SIZE_DIVISIBILITY)
+    collator = BatchCollator(cfg.DATALOADER.SIZE_DIVISIBILITY, shapes, False)
     num_workers = cfg.DATALOADER.NUM_WORKERS
     data_loader = torch.utils.data.DataLoader(
             dataset,
@@ -159,110 +162,43 @@ def make_coco_dataloader(cfg, is_train=True, is_distributed=False, start_iter=0,
         return data_loader, iterations_per_epoch
     return [data_loader]
 
-@DATASETS.register("PathsCatalogLoader")
-def paths_catalog_dataloader(cfg, is_train=True, is_distributed=False, start_iter=0, random_number_generator=None):
-    num_gpus = get_world_size()
-    if is_train:
-        images_per_batch = cfg.SOLVER.IMS_PER_BATCH
-        assert (
-            images_per_batch % num_gpus == 0
-        ), "SOLVER.IMS_PER_BATCH ({}) must be divisible by the number "
-        "of GPUs ({}) used.".format(images_per_batch, num_gpus)
-        images_per_gpu = images_per_batch // num_gpus
-        shuffle = True
-        num_iters = cfg.SOLVER.MAX_ITER
-    else:
-        images_per_batch = cfg.TEST.IMS_PER_BATCH
-        assert (
-            images_per_batch % num_gpus == 0
-        ), "TEST.IMS_PER_BATCH ({}) must be divisible by the number "
-        "of GPUs ({}) used.".format(images_per_batch, num_gpus)
-        images_per_gpu = images_per_batch // num_gpus
-        shuffle = False if not is_distributed else True
-        num_iters = None
-        start_iter = 0
-
-    if images_per_gpu > 1:
-        logger = logging.getLogger(__name__)
-        logger.warning(
-            "When using more than one image per GPU you may encounter "
-            "an out-of-memory (OOM) error if your GPU does not have "
-            "sufficient memory. If this happens, you can reduce "
-            "SOLVER.IMS_PER_BATCH (for training) or "
-            "TEST.IMS_PER_BATCH (for inference). For training, you must "
-            "also adjust the learning rate and schedule length according "
-            "to the linear scaling rule. See for example: "
-            "https://github.com/facebookresearch/Detectron/blob/master/configs/getting_started/tutorial_1gpu_e2e_faster_rcnn_R-50-FPN.yaml#L14"
-        )
-
-    # group images which have similar aspect ratio. In this case, we only
-    # group in two cases: those with width / height > 1, and the other way around,
-    # but the code supports more general grouping strategy
-    aspect_grouping = [1] if cfg.DATALOADER.ASPECT_RATIO_GROUPING else []
-
-    paths_catalog = import_file(
-        "configs.paths_catalog", cfg.PATHS_CATALOG, True
-    )
-    DatasetCatalog = paths_catalog.DatasetCatalog
-    dataset_list = cfg.DATASETS.TRAIN if is_train else cfg.DATASETS.TEST
-
-    is_fp16 = (cfg.DTYPE == "float16") or (cfg.DTYPE == "amp" and cfg.SOLVER.OPT_LEVEL in ['O2', 'O3'])
-    transforms = build_transforms(cfg, is_train, is_fp16)
-    datasets, epoch_size = build_dataset(dataset_list, transforms, DatasetCatalog, is_train)
-
-    data_loaders = []
-    for dataset in datasets:
-        sampler = make_data_sampler(dataset, shuffle, is_distributed)
-        batch_sampler = make_batch_data_sampler(
-            dataset, sampler, aspect_grouping, images_per_gpu, num_iters, start_iter, random_number_generator,
-        )
-        collator = BatchCollator(cfg.DATALOADER.SIZE_DIVISIBILITY)
-        num_workers = cfg.DATALOADER.NUM_WORKERS
-        data_loader = torch.utils.data.DataLoader(
-            dataset,
-            num_workers=num_workers,
-            batch_sampler=batch_sampler,
-            collate_fn=collator,
-            pin_memory=True,
-        )
-        data_loaders.append(data_loader)
-    if is_train:
-        # during training, a single (possibly concatenated) data_loader is returned
-        assert len(data_loaders) == 1
-        iterations_per_epoch = epoch_size // images_per_batch + 1
-        return data_loaders[0], iterations_per_epoch
-    return data_loaders
-
-def make_data_loader(cfg, is_train=True, is_distributed=False, start_iter=0, random_number_generator=None):
+def make_data_loader(cfg, is_train=True, is_distributed=False, start_iter=0, random_number_generator=None, shapes=None):
     return DATASETS[cfg.INPUT.DATALOADER](cfg, 
                                           is_train=is_train, 
                                           is_distributed=is_distributed, 
                                           start_iter=start_iter, 
-                                          random_number_generator=random_number_generator)
+                                          random_number_generator=random_number_generator,
+                                          shapes=shapes)
 
-def prefetcher(load_iterator, device):
-    prefetch_stream = torch.cuda.Stream()
-    pad_batches = []
+class Prefetcher:
+    def __init__(self, data_loader, device):
+        self.data_loader = iter(data_loader)
+        self.device = device
+        self.images = None
+        self.targets = None
+        self.loader_stream = torch.cuda.Stream()
+        self.done = False
 
-    def _prefetch():
+    def __iter__(self):
+        return self
+
+    def prefetch(self):
         try:
-            # I'm not sure why the trailing _ is necessary but the reference used
-            # "for i, (images, targets, _) in enumerate(data_loader):" so I'll keep it.
-            images, targets, _ = next(load_iterator)
+            with torch.cuda.stream(self.loader_stream):
+                self.images, self.targets, _ = next(self.data_loader)
+                self.images = self.images.to(self.device)
+                self.targets = [target.to(self.device, non_blocking=True) for target in self.targets]
         except StopIteration:
-            return None, None
+            self.images, self.targets = None, None
+            self.done = True
 
-        with torch.cuda.stream(prefetch_stream):
-            # TODO:  I'm not sure if the dataloader knows how to pin the targets' datatype.
-            targets = [target.to(device, non_blocking=True) for target in targets]
-            images = images.to(device, non_blocking=True)
-
-        return images, targets
-
-    next_images, next_targets = _prefetch()
-
-    while next_images is not None:
-        torch.cuda.current_stream().wait_stream(prefetch_stream)
-        current_images, current_targets = next_images, next_targets
-        next_images, next_targets = _prefetch()
-        yield current_images, current_targets
+    def __next__(self):
+        torch.cuda.current_stream().wait_stream(self.loader_stream)
+        if self.images is None and not self.done:
+            self.prefetch()
+        if self.done:
+            raise StopIteration()
+        else:
+            images, targets = self.images, self.targets
+            self.images, self.targets = None, None
+            return images, targets

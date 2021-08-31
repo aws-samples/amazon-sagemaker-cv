@@ -65,7 +65,7 @@ class FusedNovoGrad(torch.optim.Optimizer):
     """
 
     def __init__(self, params, lr=1e-3, bias_correction=True,
-                 betas=(0.9, 0.999), eps=1e-8, weight_decay=0.,
+                 betas=(0.9, 0.0), eps=1e-8, weight_decay=0.,
                  amsgrad=False, reg_inside_moment=False,
                  grad_averaging=True, norm_type=2, init_zero=False,
                  set_grad_none=True):

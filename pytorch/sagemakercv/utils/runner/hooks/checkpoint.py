@@ -27,7 +27,7 @@ class CheckpointHook(Hook):
             runner.rank==0
         )
         self.extra_checkpoint_data = self.checkpointer.load(runner.cfg.MODEL.WEIGHT, 
-                                                            runner.cfg.NHWC)
+                                                            runner.cfg.OPT_LEVEL=="O4")
 
     def after_train_epoch(self, runner):
         # Disable for now, causing error on training job
@@ -38,7 +38,7 @@ class CheckpointHook(Hook):
         if runner.rank==0:
             checkpoint_dir = os.path.join(self.out_dir, "{:03d}".format(runner.epoch))
             os.makedirs(checkpoint_dir, exist_ok=True)
-            self.checkpointer.save("model_{:07d}".format(runner.iter), nhwc=runner.cfg.NHWC)
+            self.checkpointer.save("model_{:07d}".format(runner.iter), nhwc=runner.cfg.OPT_LEVEL=="O4")
         
 class DetectronCheckpointHook(CheckpointHook):
         
@@ -53,7 +53,7 @@ class DetectronCheckpointHook(CheckpointHook):
             runner.rank==0
         )
         self.extra_checkpoint_data = self.checkpointer.load(runner.cfg.MODEL.WEIGHT,
-                                                            runner.cfg.NHWC)
+                                                            runner.cfg.OPT_LEVEL=="O4")
 
 @HOOKS.register("DetectronCheckpointHook")
 def build_detectron_checkpoint_hook(cfg):

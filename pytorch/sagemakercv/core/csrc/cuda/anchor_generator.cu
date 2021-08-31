@@ -40,8 +40,8 @@ float4 add_boxes(const float4& a, const float4& b) {
  * - Accesses to global memory are all done via. float4
  */
 __global__
-void generate_anchors_single(const int image_height,
-                             const int image_width,
+void generate_anchors_single(const int *image_height_ptr,
+                             const int *image_width_ptr,
                              const int feature_height,
                              const int feature_width,
                              const float4* anchor_data, // [1, 3, 4]
@@ -50,6 +50,9 @@ void generate_anchors_single(const int image_height,
                              float4 *anchors,
                              const float straddle_thresh,
                              uint8_t* inds_inside) {
+
+  const int image_height = *image_height_ptr;
+  const int image_width = *image_width_ptr;
 
   // size of arange is floor(start - end / step)
   // in this case, floor((feature{height,width} * stride - 0) / stride)
@@ -99,7 +102,8 @@ void generate_anchors_single(const int image_height,
 
 
 std::vector<at::Tensor> anchor_generator(
-    std::vector<int64_t> image_shape,       // (height, width)
+    at::Tensor& image_height,
+    at::Tensor& image_width,
     std::vector<int64_t> feature_map_size,  // (height, width)
     at::Tensor& cell_anchors,               // shape: [1, 3, 4]
     const int stride,
@@ -127,8 +131,8 @@ std::vector<at::Tensor> anchor_generator(
 
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
   generate_anchors_single<<<grid, block, 0, stream>>>(
-                             image_shape[0],
-                             image_shape[1],
+		             image_height.data_ptr<int>(),
+			     image_width.data_ptr<int>(),
                              feature_map_size[0],
                              feature_map_size[1],
                              reinterpret_cast<float4*>(cell_anchors.data_ptr<float>()),

@@ -208,7 +208,7 @@ class Runner(object):
                                        self.optimizer, 
                                        self.scheduler, 
                                        self.device,
-                                       self.cfg.DTYPE,
+                                       self.cfg.OPT_LEVEL,
                                        grad_clip=self.cfg.SOLVER.GRADIENT_CLIPPING)
             if self.rank == 0:
                 self.log_buffer.update(self.losses, self._iter)
