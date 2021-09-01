@@ -15,7 +15,7 @@ requirements = ["torch", "torchvision"]
 
 def get_extensions():
     this_dir = os.path.dirname(os.path.abspath(__file__))
-    extensions_dir = os.path.join(this_dir, "sagemakercv", "core", "csrc")
+    extensions_dir = os.path.join(this_dir, "smcv_utils")
 
     main_file = glob.glob(os.path.join(extensions_dir, "vision.cpp"))
     main_file_nhwc = glob.glob(os.path.join(extensions_dir, "cuda/nhwc.cpp"))
@@ -49,13 +49,13 @@ def get_extensions():
 
     ext_modules = [
         extension(
-            "sagemakercv._C",
+            "smcv_utils._C",
             sources,
             include_dirs=include_dirs,
             define_macros=define_macros,
             extra_compile_args=extra_compile_args,
         ),
-        extension("sagemakercv.NHWC",
+        extension("smcv_utils.NHWC",
             sources_nhwc,
             include_dirs=include_dirs,
             define_macros=define_macros,
@@ -67,11 +67,11 @@ def get_extensions():
 
 
 setup(
-    name="sagemakercv",
+    name="smcv_utils",
     version="0.1",
     author="jbsnyder",
-    url="https://github.com/johnbensnyder/sagemaker_cv",
-    description="Computer vision in Pytorch with Amazon Sagemaker",
+    url="https://github.com/aws/smcv_utils",
+    description="Computer vision PyTorch addons for Amazon SageMaker",
     packages=find_packages(exclude=("configs", "tests",)),
     ext_modules=get_extensions(),
     cmdclass={"build_ext": torch.utils.cpp_extension.BuildExtension},

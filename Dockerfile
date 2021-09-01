@@ -1,15 +1,8 @@
 ARG REGION=us-west-2
 ARG DLC_ACCOUNT=763104351884
 ARG FRAMEWORK=pytorch-training
-ARG VERSION=1.8.1-gpu-py36-cu111-ubuntu18.04
+ARG VERSION=1.9.0-gpu-py38-cu111-ubuntu20.04
 FROM ${DLC_ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/${FRAMEWORK}:${VERSION}
-
-# add CUDNN header files
-ENV CUDNN_VERSION=8.0.5.39
-
-RUN apt-get update \
-    && apt-get install -y --allow-change-held-packages --no-install-recommends \
-    libcudnn8-dev=$CUDNN_VERSION-1+cuda11.1
 
 # set timezone
 ENV TZ=America/Los_Angeles
@@ -39,15 +32,7 @@ RUN pip install --no-cache-dir https://github.com/mlperf/logging/archive/9ea0afa
 RUN git clone https://github.com/NVIDIA/cocoapi && \
     cd cocoapi/PythonAPI && \
     pip install -v --no-cache-dir -e .
-
-RUN mkdir -p /workspace/object_detection
-WORKDIR /workspace/object_detection
-
-# install SMCV
-COPY . .
-RUN pip install -v --no-cache-dir -e .
-WORKDIR /workspace
-
+    
 # add kernel tools to use interactively with studio
 RUN pip install ipykernel jupyterlab && \
     python -m ipykernel install --sys-prefix && \
