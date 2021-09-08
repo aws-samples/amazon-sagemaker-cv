@@ -7,7 +7,7 @@ from sagemakercv.core.structures.bounding_box import BoxList
 from sagemakercv.core.structures.boxlist_ops import boxlist_nms
 from sagemakercv.core.structures.boxlist_ops import cat_boxlist
 from sagemakercv.core.box_coder import BoxCoder
-from sagemakercv import _C as C
+from smcv_utils import _C
 
 
 class PostProcessor(nn.Module):
@@ -129,7 +129,7 @@ class PostProcessor(nn.Module):
         inds_all = inds_all[batch_idx, sorted_idx]
         boxes = boxes.reshape(-1, 4)
         # Apply batched_nms kernel
-        keep_inds_batched = C.nms_batched(boxes, num_boxes_per_class, num_boxes_tensor, inds_all.byte(), self.nms)
+        keep_inds_batched = _C.nms_batched(boxes, num_boxes_per_class, num_boxes_tensor, inds_all.byte(), self.nms)
         keep_inds = keep_inds_batched.view(-1).nonzero().squeeze(1)
         boxes = boxes.reshape(-1,4).index_select(dim=0, index=keep_inds)
         scores = scores.reshape(-1).index_select(dim=0, index=keep_inds)

@@ -8,7 +8,7 @@ from sagemakercv.layers.nhwc import Conv2d_NHWC, nhwc_to_nchw_transform, nchw_to
 from sagemakercv.layers.nhwc import MaxPool2d_NHWC 
 from sagemakercv.layers.nhwc import init
 from sagemakercv.layers.conv_module import ConvModule
-from sagemakercv import _C
+from smcv_utils import _C
 
 class FPN(nn.Module):
     """

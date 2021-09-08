@@ -1,7 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 # Copyright (c) 2018-2019 NVIDIA CORPORATION. All rights reserved.
 import math
-from sagemakercv import _C
+from smcv_utils import _C
 import torch
 
 

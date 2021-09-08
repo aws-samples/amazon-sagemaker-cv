@@ -9,7 +9,7 @@ from sagemakercv.core.structures.boxlist_ops import boxlist_nms
 from sagemakercv.core.structures.boxlist_ops import remove_small_boxes
 from sagemakercv.core.utils import cat
 from torch.nn.utils.rnn import pad_sequence
-from sagemakercv import _C as C
+from smcv_utils import _C
 
 class RPNPostProcessor(torch.nn.Module):
     """
@@ -118,7 +118,7 @@ class RPNPostProcessor(torch.nn.Module):
             # At the end we need to keep only the proposals & scores flagged
             # Note: topk_idx, objectness are sorted => proposals, objectness, keep are also
             # sorted -- this is important later
-            proposals, objectness, keep = C.GeneratePreNMSUprightBoxes(
+            proposals, objectness, keep = _C.GeneratePreNMSUprightBoxes(
                                     N,
                                     A,
                                     H,
@@ -212,7 +212,7 @@ class RPNPostProcessor(torch.nn.Module):
         num_boxes_tensor = torch.tensor(num_boxes_batched, device=box.bbox.device, dtype=torch.int32)
         boxes_cat = torch.cat(boxlist_batched)
         # nms_batched requires input boxes to be sorted, which is the case here
-        keep_inds_batched = C.nms_batched(boxes_cat, num_boxes_batched, num_boxes_tensor, self.nms_thresh)
+        keep_inds_batched = _C.nms_batched(boxes_cat, num_boxes_batched, num_boxes_tensor, self.nms_thresh)
         ptr = 0
         start_idx = 0
         sampled_boxes_post_nms = []
@@ -293,7 +293,7 @@ class RPNPostProcessor(torch.nn.Module):
         batched_anchor_tensor, image_shapes = anchors[0], anchors[2]
 
         # generate proposals using a batched kernel
-        proposals_gen, objectness_gen, keep_gen = C.GeneratePreNMSUprightBoxesBatched(
+        proposals_gen, objectness_gen, keep_gen = _C.GeneratePreNMSUprightBoxesBatched(
                                 N,
                                 A,
                                 H_max*W_max,
@@ -316,7 +316,7 @@ class RPNPostProcessor(torch.nn.Module):
         proposals_gen = proposals_gen.reshape(N * num_fmaps * self.pre_nms_top_n, 4)
 
         # perform batched NMS kernel
-        keep_nms_batched = C.nms_batched(proposals_gen, num_max_proposals, num_max_props_tensor, keep_gen, self.nms_thresh).bool()
+        keep_nms_batched = _C.nms_batched(proposals_gen, num_max_proposals, num_max_props_tensor, keep_gen, self.nms_thresh).bool()
         keep_nms_batched = keep_nms_batched.reshape(num_fmaps, N, -1)
         keep = keep_nms_batched.reshape(num_fmaps, N, self.pre_nms_top_n)
         # switch leading two dimensions from (f_map, image) to (image, fmap)

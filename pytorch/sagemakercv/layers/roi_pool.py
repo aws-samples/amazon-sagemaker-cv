@@ -6,7 +6,7 @@ from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 from torch.nn.modules.utils import _pair
 
-from sagemakercv import _C
+from smcv_utils import _C
 
 from apex import amp
 

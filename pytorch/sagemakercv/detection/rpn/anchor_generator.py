@@ -6,7 +6,7 @@ from torch import nn
 
 from sagemakercv.core.structures.boxlist_ops import cat_boxlist
 from sagemakercv.core.structures.bounding_box import BoxList
-from sagemakercv import _C
+from smcv_utils import _C
 
 def meshgrid(x, y=None):
     if y is None:

@@ -14,7 +14,7 @@
 
 import torch
 from apex import amp
-from sagemakercv import NHWC
+from smcv_utils import NHWC
 
 class NHWCToNCHW_Impl(torch.autograd.Function):
     @staticmethod

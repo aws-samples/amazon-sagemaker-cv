@@ -1,5 +1,5 @@
 import torch
-from sagemakercv import _C
+from smcv_utils import _C
 
 def isr_p(cls_score,
           bbox_inputs,

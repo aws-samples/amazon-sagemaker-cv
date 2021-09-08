@@ -4,12 +4,12 @@ import torch
 
 import os
 
-from mlperf_logging.mllog import constants
+#from mlperf_logging.mllog import constants
 
 from sagemakercv.data.build import make_data_loader
 from .inference import inference
 from sagemakercv.utils.miscellaneous import mkdir
-from sagemakercv.utils.mlperf_logger import log_event
+#from sagemakercv.utils.mlperf_logger import log_event
 from sagemakercv.utils.comm import synchronize
 
 _first_test = True
@@ -32,7 +32,7 @@ def test(cfg, model, distributed):
 
     global _first_test
     if _first_test:
-        log_event(key=constants.EVAL_SAMPLES, value=len(data_loaders_val))
+        #log_event(key=constants.EVAL_SAMPLES, value=len(data_loaders_val))
         _first_test = False
 
     results = []

@@ -7,7 +7,7 @@ from sagemakercv.layers import smooth_l1_loss
 from sagemakercv.core.matcher import Matcher
 from sagemakercv.core.structures.boxlist_ops import boxlist_iou
 from sagemakercv.core.utils import cat
-from sagemakercv import _C
+from smcv_utils import _C
 import itertools
 
 def project_masks_on_boxes(segmentation_masks, proposals, discretization_size):

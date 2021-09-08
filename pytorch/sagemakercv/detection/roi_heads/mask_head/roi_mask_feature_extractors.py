@@ -6,7 +6,7 @@ from torch.nn import functional as F
 from ..box_head.roi_box_feature_extractors import ResNet50Conv5ROIFeatureExtractor
 from sagemakercv.core.poolers import Pooler
 from sagemakercv.layers.make_layers import make_conv3x3
-from sagemakercv import _C
+from smcv_utils import _C
 from sagemakercv.layers.nhwc import nchw_to_nhwc_transform, nhwc_to_nchw_transform
 
 class MaskRCNNFPNFeatureExtractor(nn.Module):

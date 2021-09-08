@@ -15,7 +15,7 @@
 import torch
 from torch.nn.modules.conv import _ConvNd, _ConvTransposeMixin
 
-from sagemakercv import NHWC
+from smcv_utils import NHWC
 from apex import amp
 
 from torch.autograd.function import once_differentiable

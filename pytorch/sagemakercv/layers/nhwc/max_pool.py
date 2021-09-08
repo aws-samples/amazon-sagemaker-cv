@@ -16,7 +16,7 @@ import torch
 from torch.nn.modules.pooling import MaxPool2d
 from apex import amp
 
-from sagemakercv import NHWC
+from smcv_utils import NHWC
 
 class max_pool_NHWC_impl(torch.autograd.Function):
     @staticmethod

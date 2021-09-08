@@ -7,5 +7,5 @@ python -m torch.distributed.launch \
     --nnodes 1 \
     --node_rank 0 \
     --nproc_per_node ${GPU_COUNT} \
-    train.py \
+    tools/train.py \
     --config ${CONFIG}
