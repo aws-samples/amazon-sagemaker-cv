@@ -48,7 +48,8 @@ class TwoStageDetector(tf.keras.models.Model):
                                   "rpn_box_loss": rpn_box_loss})
             loss_dict = self.parse_losses(model_outputs, weight_decay=weight_decay)
             model_outputs['total_loss'] = loss_dict['total_loss']
-            model_outputs['l2_loss'] = loss_dict['l2_loss']
+            if weight_decay>0.0:
+                model_outputs['l2_loss'] = loss_dict['l2_loss']
         else:
             model_outputs.update(self.roi_head(feature_maps, features['image_info'], proposals[0], training=training))
         return model_outputs

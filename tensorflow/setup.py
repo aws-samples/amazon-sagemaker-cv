@@ -11,5 +11,5 @@ setup(
     author="jbsnyder",
     url="https://github.com/aws-samples/amazon-sagemaker-cv",
     description="Computer vision in TensorFlow with Amazon Sagemaker",
-    packages=find_packages(exclude=("configs", "tests", "tools")),
+    packages=find_packages(exclude=("configs", "tests")),
 )

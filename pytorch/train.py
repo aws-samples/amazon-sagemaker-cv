@@ -8,6 +8,8 @@ import gc
 from datetime import datetime
 from ast import literal_eval
 
+sys.path.append('..')
+
 from sagemakercv.detection.detector import build_detection_model
 from utils import (unarchive_data, 
                    get_training_world)

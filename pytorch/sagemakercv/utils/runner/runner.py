@@ -229,4 +229,5 @@ class Runner(object):
         self.call_hook('before_run')
         while self._epoch < epochs:
             self.train_epoch(data_iterator)
+            torch.cuda.empty_cache()
         self.call_hook('after_run')

@@ -1,4 +1,4 @@
-OUTPUT_DIR: "/opt/ml/checkpoints"
+OUTPUT_DIR: "/root/model_outputs"
 OPT_LEVEL: "O1"
 HOOKS:
   - "DetectronCheckpointHook"
@@ -7,10 +7,10 @@ HOOKS:
   - "TextLoggerHook"
   - "COCOEvaluation"
 INPUT:
-  TRAIN_INPUT_DIR: "/opt/ml/input/data/coco/train2017"
-  VAL_INPUT_DIR: "/opt/ml/input/data/coco/val2017"
-  TRAIN_ANNO_DIR: "/opt/ml/input/data/coco/annotations/instances_train2017.json"
-  VAL_ANNO_DIR: "/opt/ml/input/data/coco/annotations/instances_val2017.json"
+  TRAIN_INPUT_DIR: "/home/sagemaker-user/data/coco/train2017"
+  VAL_INPUT_DIR: "/home/sagemaker-user/data/coco/val2017"
+  TRAIN_ANNO_DIR: "/home/sagemaker-user/data/coco/annotations/instances_train2017.json"
+  VAL_ANNO_DIR: "/home/sagemaker-user/data/coco/annotations/instances_val2017.json"
 SOLVER:
   OPTIMIZER: "NovoGrad"
   BASE_LR: 0.018
@@ -18,18 +18,18 @@ SOLVER:
   BETA2: 0.4
   ALPHA: .001
   LR_SCHEDULE: "COSINE"
-  IMS_PER_BATCH: 96
+  IMS_PER_BATCH: 8
   WEIGHT_DECAY: 0.0005
   MAX_ITER: 16500
   WARMUP_FACTOR: .01
   WARMUP_ITERS: 625
   GRADIENT_CLIPPING: 0.0
 TEST:
-  IMS_PER_BATCH: 64
-  PER_EPOCH_EVAL: False
+  IMS_PER_BATCH: 4
+  PER_EPOCH_EVAL: True
 MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN"
-  WEIGHT: "/opt/ml/input/data/weights/R-50.pkl"
+  WEIGHT: "/home/sagemaker-user/data/weights/R-50.pkl"
   RESNETS:
     TRANS_FUNC: "BottleneckWithFixedBatchNorm"
   BACKBONE:
@@ -71,4 +71,4 @@ DATASETS:
   TEST: ("coco_2017_val",)
 DATALOADER:
   SIZE_DIVISIBILITY: 32
-  NUM_WORKERS: 4
+  NUM_WORKERS: 0

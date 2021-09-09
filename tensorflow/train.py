@@ -1,5 +1,5 @@
 import sys
-# sys.path.append('..')
+sys.path.append('..')
 import os
 import argparse
 from configs import cfg
