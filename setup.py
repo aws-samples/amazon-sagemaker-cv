@@ -68,10 +68,10 @@ def get_extensions():
 
 setup(
     name="smcv_utils",
-    version="0.1",
-    author="jbsnyder",
+    version="0.0.1",
+    author="Amazon Web Services",
     url="https://github.com/aws/smcv_utils",
-    description="Computer vision PyTorch addons for Amazon SageMaker",
+    description="Computer vision PyTorch addons for Amazon SageMaker with Nvidia GPUs",
     packages=find_packages(exclude=("configs", "tests",)),
     ext_modules=get_extensions(),
     cmdclass={"build_ext": torch.utils.cpp_extension.BuildExtension},
