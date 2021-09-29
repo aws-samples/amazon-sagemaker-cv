@@ -20,7 +20,7 @@ import tensorflow as tf
 from ..builder import DETECTORS, build_backbone, build_dense_head, build_neck, build_roi_head
 
 class TwoStageDetector(tf.keras.models.Model):
-    def __init__(self, 
+    def __init__(self,
                  backbone,
                  neck,
                  dense_head,
@@ -30,16 +30,16 @@ class TwoStageDetector(tf.keras.models.Model):
         self.neck = neck
         self.rpn_head = dense_head
         self.roi_head = roi_head
-    
+
     def call(self, features, labels=None, training=True, weight_decay=0.0):
         x = self.backbone(features['images'], training=training)
         feature_maps = self.neck(x, training=training)
-        scores_outputs, box_outputs, proposals = self.rpn_head(feature_maps, 
-                                                               features['image_info'], 
+        scores_outputs, box_outputs, proposals = self.rpn_head(feature_maps,
+                                                               features['image_info'],
                                                                training=training)
         model_outputs = {'images': features['images'], 'image_info': features['image_info']}
         if training:
-            model_outputs.update(self.roi_head(feature_maps, features['image_info'], proposals[0], 
+            model_outputs.update(self.roi_head(feature_maps, features['image_info'], proposals[0],
                      gt_bboxes=labels['gt_boxes'], gt_labels=labels['gt_classes'],
                      gt_masks=labels.get('cropped_gt_masks', None), training=training))
             total_rpn_loss, rpn_score_loss, rpn_box_loss = self.rpn_head.loss(scores_outputs, box_outputs, labels)
@@ -53,7 +53,7 @@ class TwoStageDetector(tf.keras.models.Model):
         else:
             model_outputs.update(self.roi_head(feature_maps, features['image_info'], proposals[0], training=training))
         return model_outputs
-        
+
     def parse_losses(self, losses, weight_decay=0.0):
         loss_dict = {i:j for i,j in losses.items() if "loss" in i and "total" not in i}
         if weight_decay>0.0:
@@ -64,12 +64,14 @@ class TwoStageDetector(tf.keras.models.Model):
                     ])
         loss_dict['total_loss'] = sum(loss_dict.values())
         return loss_dict
-    
+
+    def train_step(self, dataset):
+        print('here')
+
 @DETECTORS.register("TwoStageDetector")
 def build_two_stage_detector(cfg):
     detector = TwoStageDetector
-    return detector(backbone=build_backbone(cfg), 
-                    neck=build_neck(cfg), 
-                    dense_head=build_dense_head(cfg), 
+    return detector(backbone=build_backbone(cfg),
+                    neck=build_neck(cfg),
+                    dense_head=build_dense_head(cfg),
                     roi_head=build_roi_head(cfg))
-    

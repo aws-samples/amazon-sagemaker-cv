@@ -22,16 +22,30 @@ tf.config.optimizer.set_jit(cfg.SOLVER.XLA)
 def main(cfg):
     dataset = iter(build_dataset(cfg))
     detector = build_detector(cfg)
-    features, labels = next(dataset)
-    result = detector(features, training=False)
-    optimizer = build_optimizer(cfg)
-    trainer = build_trainer(cfg, detector, optimizer, dist='smd' if is_sm_dist() else 'hvd')
-    runner = Runner(trainer, cfg)
-    hooks = build_hooks(cfg)
-    for hook in hooks:
-        runner.register_hook(hook)
-    runner.run(dataset)
-    
+    #features, labels = next(dataset)
+    #result = detector(features, training=False)
+    #optimizer = build_optimizer(cfg)
+    #trainer = build_trainer(cfg, detector, optimizer, dist='smd' if is_sm_dist() else 'hvd')
+    #runner = Runner(trainer, cfg)
+    #hooks = build_hooks(cfg)
+    #for hook in hooks:
+    #    runner.register_hook(hook)
+    #runner.run(dataset)
+
+    optimizer = tf.keras.optimizers.SGD(learning_rate=0.01 * cfg.INPUT.TRAIN_BATCH_SIZE / 8)
+    if cfg.SOLVER.FP16:
+        optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer,
+                                                                dynamic=True,
+                                                                initial_scale=2 ** 15,
+                                                                dynamic_growth_steps=2000
+                                                               )
+    detector.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(), optimizer=optimizer)
+
+    detector.fit(x=dataset,
+                 steps_per_epoch=10,
+                 epochs=2,
+                 verbose=1 if rank() == 0 else 0)
+
 def parse():
     parser = argparse.ArgumentParser(description='Load model configuration')
     parser.add_argument('--config', help='Configuration file to apply on top of base')
@@ -41,6 +55,6 @@ def parse():
 if __name__=='__main__':
     args = parse()
     cfg.merge_from_file(args.config)
-    assert cfg.INPUT.TRAIN_BATCH_SIZE%MPI_size()==0, f"Batch {cfg.INPUT.TRAIN_BATCH_SIZE} on {MPI_size()} GPUs" 
-    assert cfg.INPUT.EVAL_BATCH_SIZE%MPI_size()==0, f"Batch {cfg.INPUT.EVAL_BATCH_SIZE} on {MPI_size()} GPUs" 
+    assert cfg.INPUT.TRAIN_BATCH_SIZE%MPI_size()==0, f"Batch {cfg.INPUT.TRAIN_BATCH_SIZE} on {MPI_size()} GPUs"
+    assert cfg.INPUT.EVAL_BATCH_SIZE%MPI_size()==0, f"Batch {cfg.INPUT.EVAL_BATCH_SIZE} on {MPI_size()} GPUs"
     main(cfg)
