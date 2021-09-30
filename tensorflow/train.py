@@ -9,6 +9,7 @@ from sagemakercv.data import build_dataset
 from sagemakercv.utils.dist_utils import get_dist_info, MPI_size, is_sm_dist
 from sagemakercv.utils.runner import Runner, build_hooks
 import tensorflow as tf
+import horovod.keras as dist
 
 rank, local_rank, size, local_size = get_dist_info()
 devices = tf.config.list_physical_devices('GPU')
@@ -22,25 +23,25 @@ tf.config.optimizer.set_jit(cfg.SOLVER.XLA)
 def main(cfg):
     dataset = iter(build_dataset(cfg))
     detector = build_detector(cfg)
-    #features, labels = next(dataset)
-    #result = detector(features, training=False)
-    #optimizer = build_optimizer(cfg)
-    #trainer = build_trainer(cfg, detector, optimizer, dist='smd' if is_sm_dist() else 'hvd')
-    #runner = Runner(trainer, cfg)
-    #hooks = build_hooks(cfg)
-    #for hook in hooks:
-    #    runner.register_hook(hook)
-    #runner.run(dataset)
+    features, labels = next(dataset)
+    result = detector(features, training=False)
+    optimizer = build_optimizer(cfg)
+    trainer = build_trainer(cfg, detector, optimizer, dist='smd' if is_sm_dist() else 'hvd')
+    runner = Runner(trainer, cfg)
+    hooks = build_hooks(cfg)
+    for hook in hooks:
+        runner.register_hook(hook)
+    runner.run(dataset)
 
+def main_keras(cfg):
+    dataset = build_dataset(cfg)
+    detector = build_detector(cfg)
     optimizer = tf.keras.optimizers.SGD(learning_rate=0.01 * cfg.INPUT.TRAIN_BATCH_SIZE / 8)
     if cfg.SOLVER.FP16:
-        optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer,
-                                                                dynamic=True,
-                                                                initial_scale=2 ** 15,
-                                                                dynamic_growth_steps=2000
-                                                               )
-    detector.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(), optimizer=optimizer)
+        optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer, dynamic=True, initial_scale=2 ** 15, dynamic_growth_steps=2000)
 
+    optimizer = dist.DistributedOptimizer(optimizer)
+    detector.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(), optimizer=optimizer)
     detector.fit(x=dataset,
                  steps_per_epoch=10,
                  epochs=2,
@@ -57,4 +58,5 @@ if __name__=='__main__':
     cfg.merge_from_file(args.config)
     assert cfg.INPUT.TRAIN_BATCH_SIZE%MPI_size()==0, f"Batch {cfg.INPUT.TRAIN_BATCH_SIZE} on {MPI_size()} GPUs"
     assert cfg.INPUT.EVAL_BATCH_SIZE%MPI_size()==0, f"Batch {cfg.INPUT.EVAL_BATCH_SIZE} on {MPI_size()} GPUs"
-    main(cfg)
+    #main(cfg)
+    main_keras(cfg)
