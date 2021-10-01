@@ -70,6 +70,7 @@ class TwoStageDetector(tf.keras.models.Model):
         self.optimizer = optimizer
         self.loss = loss
 
+    @tf.function
     def train_step(self, data_batch):
         features, labels = data_batch
         #print(features)
