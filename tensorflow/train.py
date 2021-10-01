@@ -39,11 +39,8 @@ def main_keras(cfg):
     dataset = build_dataset(cfg)
     detector = build_detector(cfg)
     optimizer = tf.keras.optimizers.SGD(learning_rate=0.01 * cfg.INPUT.TRAIN_BATCH_SIZE / 8)
-    #if cfg.SOLVER.FP16:
-        #optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer, dynamic=True, initial_scale=2 ** 15, dynamic_growth_steps=2000)
-
     optimizer = dist.DistributedOptimizer(optimizer)
-    detector.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(), optimizer=optimizer, run_eagerly=True)
+    detector.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(), optimizer=optimizer)
     detector.fit(x=dataset,
                  steps_per_epoch=50,
                  epochs=2,

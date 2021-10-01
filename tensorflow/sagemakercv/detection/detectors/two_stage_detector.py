@@ -65,7 +65,7 @@ class TwoStageDetector(tf.keras.models.Model):
         loss_dict['total_loss'] = sum(loss_dict.values())
         return loss_dict
 
-    def compile(self, loss, optimizer, run_eagerly=None):
+    def compile(self, loss, optimizer, run_eagerly=True):
         super(TwoStageDetector, self).compile(run_eagerly=run_eagerly)
         self.optimizer = optimizer
         self.loss = loss
@@ -73,7 +73,6 @@ class TwoStageDetector(tf.keras.models.Model):
     @tf.function
     def train_step(self, data_batch):
         features, labels = data_batch
-        #print(features)
         with tf.GradientTape() as tape:
             model_outputs = self(features, labels, training=True)
 
@@ -90,7 +89,7 @@ class TwoStageDetector(tf.keras.models.Model):
             'source_ids': data_batch[0]['source_ids'],
             'image_info': data_batch[0]['image_info'],
         })
-        return model_outputs
+        return losses
 
 @DETECTORS.register("TwoStageDetector")
 def build_two_stage_detector(cfg):
