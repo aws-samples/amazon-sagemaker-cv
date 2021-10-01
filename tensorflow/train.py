@@ -10,6 +10,7 @@ from sagemakercv.utils.dist_utils import get_dist_info, MPI_size, is_sm_dist
 from sagemakercv.utils.runner import Runner, build_hooks
 import tensorflow as tf
 import horovod.keras as dist
+dist.init()
 
 rank, local_rank, size, local_size = get_dist_info()
 devices = tf.config.list_physical_devices('GPU')
