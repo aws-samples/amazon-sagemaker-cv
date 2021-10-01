@@ -74,7 +74,7 @@ class TwoStageDetector(tf.keras.models.Model):
         features, labels = data_batch
         print(features)
         with tf.GradientTape() as tape:
-            model_outputs = self(features, labels, training=True, weight_decay=self.weight_decay)
+            model_outputs = self(features, labels, training=True)
 
         gradients = tape.gradient(model_outputs['total_loss'], self.trainable_variables)
         grads_and_vars = []
@@ -89,7 +89,7 @@ class TwoStageDetector(tf.keras.models.Model):
             'source_ids': data_batch[0]['source_ids'],
             'image_info': data_batch[0]['image_info'],
         })
-        return losses, model_outputs
+        return model_outputs
 
 @DETECTORS.register("TwoStageDetector")
 def build_two_stage_detector(cfg):
