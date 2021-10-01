@@ -10,6 +10,7 @@ from sagemakercv.utils.dist_utils import get_dist_info, MPI_size, is_sm_dist
 from sagemakercv.utils.runner import Runner, build_hooks
 import tensorflow as tf
 import horovod.keras as dist
+#import smdistributed.dataparallel.tensorflow as dist
 dist.init()
 
 rank, local_rank, size, local_size = get_dist_info()
@@ -44,7 +45,7 @@ def main_keras(cfg):
     optimizer = dist.DistributedOptimizer(optimizer)
     detector.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(), optimizer=optimizer, run_eagerly=True)
     detector.fit(x=dataset,
-                 steps_per_epoch=10,
+                 steps_per_epoch=50,
                  epochs=2,
                  verbose=1 if rank == 0 else 0)
 

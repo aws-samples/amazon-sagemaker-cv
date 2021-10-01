@@ -72,7 +72,7 @@ class TwoStageDetector(tf.keras.models.Model):
 
     def train_step(self, data_batch):
         features, labels = data_batch
-        print(features)
+        #print(features)
         with tf.GradientTape() as tape:
             model_outputs = self(features, labels, training=True)
 
