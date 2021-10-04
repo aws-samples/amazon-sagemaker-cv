@@ -65,11 +65,13 @@ class TwoStageDetector(tf.keras.models.Model):
         loss_dict['total_loss'] = sum(loss_dict.values())
         return loss_dict
 
+    # overrided function for Keras model.compile
     def compile(self, loss, optimizer, run_eagerly=True):
         super(TwoStageDetector, self).compile(run_eagerly=run_eagerly)
         self.optimizer = optimizer
         self.loss = loss
 
+    # overrided function for Keras model.fit
     @tf.function
     def train_step(self, data_batch):
         features, labels = data_batch

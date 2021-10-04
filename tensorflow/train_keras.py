@@ -1,14 +1,18 @@
 import sys
 sys.path.append('..')
-import os
 import argparse
 from configs import cfg
 from sagemakercv.detection import build_detector
-from sagemakercv.training import build_optimizer, build_scheduler, build_trainer
 from sagemakercv.data import build_dataset
 from sagemakercv.utils.dist_utils import get_dist_info, MPI_size, is_sm_dist
-from sagemakercv.utils.runner import Runner, build_hooks
 import tensorflow as tf
+
+if is_sm_dist():
+    import smdistributed.dataparallel.tensorflow.keras as dist
+else:
+    import horovod.keras as dist
+
+dist.init()
 
 rank, local_rank, size, local_size = get_dist_info()
 devices = tf.config.list_physical_devices('GPU')
@@ -20,17 +24,20 @@ tf.config.optimizer.set_experimental_options({"auto_mixed_precision": cfg.SOLVER
 tf.config.optimizer.set_jit(cfg.SOLVER.XLA)
 
 def main(cfg):
-    dataset = iter(build_dataset(cfg))
+    dataset = build_dataset(cfg)
     detector = build_detector(cfg)
-    features, labels = next(dataset)
-    result = detector(features, training=False)
-    optimizer = build_optimizer(cfg)
-    trainer = build_trainer(cfg, detector, optimizer, dist='smd' if is_sm_dist() else 'hvd')
-    runner = Runner(trainer, cfg)
-    hooks = build_hooks(cfg)
-    for hook in hooks:
-        runner.register_hook(hook)
-    runner.run(dataset)
+
+    optimizer = tf.keras.optimizers.SGD(learning_rate=0.01 * cfg.INPUT.TRAIN_BATCH_SIZE / 8)
+    optimizer = dist.DistributedOptimizer(optimizer)
+    detector.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(), optimizer=optimizer)
+
+    steps_per_epoch = cfg.SOLVER.NUM_IMAGES // cfg.INPUT.TRAIN_BATCH_SIZE
+    epochs = cfg.SOLVER.MAX_ITERS // steps_per_epoch + 1
+
+    detector.fit(x=dataset,
+                 steps_per_epoch=50,
+                 epochs=4,
+                 verbose=1 if rank == 0 else 0)
 
 def parse():
     parser = argparse.ArgumentParser(description='Load model configuration')
