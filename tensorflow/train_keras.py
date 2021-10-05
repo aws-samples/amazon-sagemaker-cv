@@ -37,8 +37,8 @@ def main(cfg):
     callbacks = [dist.callbacks.BroadcastGlobalVariablesCallback(0)]
 
     detector.fit(x=dataset,
-                 steps_per_epoch=50,
-                 epochs=4,
+                 steps_per_epoch=steps_per_epoch,
+                 epochs=epochs,
                  callbacks=callbacks,
                  verbose=1 if rank == 0 else 0)
 
