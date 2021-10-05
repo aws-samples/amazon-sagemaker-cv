@@ -34,9 +34,12 @@ def main(cfg):
     steps_per_epoch = cfg.SOLVER.NUM_IMAGES // cfg.INPUT.TRAIN_BATCH_SIZE
     epochs = cfg.SOLVER.MAX_ITERS // steps_per_epoch + 1
 
+    callbacks = [dist.callbacks.BroadcastGlobalVariablesCallback(0)]
+
     detector.fit(x=dataset,
                  steps_per_epoch=50,
                  epochs=4,
+                 callbacks=callbacks,
                  verbose=1 if rank == 0 else 0)
 
 def parse():
