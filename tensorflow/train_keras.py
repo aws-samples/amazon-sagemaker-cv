@@ -7,7 +7,8 @@ from sagemakercv.data import build_dataset
 from sagemakercv.utils.dist_utils import get_dist_info, MPI_size, is_sm_dist
 import tensorflow as tf
 
-if is_sm_dist():
+#if is_sm_dist():
+if True:
     import smdistributed.dataparallel.tensorflow.keras as dist
 else:
     import horovod.keras as dist
@@ -32,7 +33,8 @@ def main(cfg):
     detector.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(), optimizer=optimizer)
 
     steps_per_epoch = cfg.SOLVER.NUM_IMAGES // cfg.INPUT.TRAIN_BATCH_SIZE
-    epochs = cfg.SOLVER.MAX_ITERS // steps_per_epoch + 1
+    #epochs = cfg.SOLVER.MAX_ITERS // steps_per_epoch + 1
+    epochs = 1
 
     callbacks = [dist.callbacks.BroadcastGlobalVariablesCallback(0)]
 
