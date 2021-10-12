@@ -7,9 +7,9 @@ RUN pip uninstall -y \
     tensorflow-estimator \
     tensorflow-gpu
 
-RUN pip install tensorflow==2.5.1
+RUN pip install https://aws-tensorflow-binaries.s3-us-west-2.amazonaws.com/tensorflow/r2.5_aws/20210820_112241/gpu/cu112/py37/tensorflow_gpu-2.5.1-cp37-cp37m-manylinux2010_x86_64.whl
 
-RUN HOROVOD_GPU_OPERATIONS=NCCL pip install horovod
+RUN HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_TENSORFLOW=1 pip install horovod==0.23.0
 
 COPY herring /herring
 
