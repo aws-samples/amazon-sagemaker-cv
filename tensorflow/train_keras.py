@@ -5,6 +5,7 @@ from configs import cfg
 from sagemakercv.detection import build_detector
 from sagemakercv.data import build_dataset
 from sagemakercv.utils.dist_utils import get_dist_info, MPI_size, is_sm_dist
+from sagemakercv.data.coco import evaluation
 import tensorflow as tf
 
 #if is_sm_dist():
@@ -43,6 +44,18 @@ def main(cfg):
                  epochs=epochs,
                  callbacks=callbacks,
                  verbose=1 if rank == 0 else 0)
+
+    eval_dataset = build_dataset(cfg, mode='eval')
+
+    predictions = detector.predict(
+        x=eval_dataset,
+        verbose=1 if rank == 0 else 0
+    )
+
+    annotations_file = cfg.PATHS.VAL_ANNOTATIONS
+    stat_dict = evaluation.evaluate_coco_predictions(annotations_file, predictions.keys(), predictions, verbose=False)
+
+    print(stat_dict)
 
 def parse():
     parser = argparse.ArgumentParser(description='Load model configuration')
