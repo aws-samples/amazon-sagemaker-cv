@@ -45,17 +45,15 @@ def main(cfg):
                  callbacks=callbacks,
                  verbose=1 if rank == 0 else 0)
 
-    eval_dataset = build_dataset(cfg, mode='eval')
+    if rank == 0:
+        eval_dataset = build_dataset(cfg, mode='eval')
 
-    predictions = detector.predict(
-        x=eval_dataset,
-        verbose=1 if rank == 0 else 0
-    )
+        predictions = detector.predict(x=eval_dataset)
 
-    annotations_file = cfg.PATHS.VAL_ANNOTATIONS
-    stat_dict = evaluation.evaluate_coco_predictions(annotations_file, predictions.keys(), predictions, verbose=False)
+        annotations_file = cfg.PATHS.VAL_ANNOTATIONS
+        stat_dict = evaluation.evaluate_coco_predictions(annotations_file, predictions.keys(), predictions, verbose=False)
 
-    print(stat_dict)
+        print(stat_dict)
 
 def parse():
     parser = argparse.ArgumentParser(description='Load model configuration')
