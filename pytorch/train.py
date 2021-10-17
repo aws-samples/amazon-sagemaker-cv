@@ -19,7 +19,6 @@ from sagemakercv.utils.checkpoint import DetectronCheckpointer
 from sagemakercv.utils.runner import build_hooks, Runner
 from sagemakercv.utils.runner.hooks.checkpoint import DetectronCheckpointHook
 from sagemakercv.training.trainers import train_step
-# from sagemakercv.utils.cuda_graph import graph_model
 from sagemakercv.utils.comm import synchronize, get_rank, is_main_process, get_world_size, is_sm_dist, is_herring
 import apex
 from configs import cfg
@@ -29,9 +28,6 @@ from statistics import mean
 import resource
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
 resource.setrlimit(resource.RLIMIT_NOFILE, (4096, rlimit[1]))
-# os.environ['SM_FRAMEWORK_PARAMS'] = "{\"sagemaker_distributed_dataparallel_custom_mpi_options\":\"\",\"sagemaker_distributed_dataparallel_enabled\":true,\"sagemaker_instance_type\":\"ml.p3dn.24xlarge\"}"
-
-# torch.multiprocessing.set_sharing_strategy('file_system')
 
 if (torch._C, '_jit_set_profiling_executor') :
     torch._C._jit_set_profiling_executor(False)
@@ -57,7 +53,6 @@ def unarchive():
     return
     
 def main(cfg):
-    # use_smd = cfg.DISTRIBUTION.lower() in ['herring', 'sagemaker', 'smd']
     start_time = datetime.now()
     use_smd = is_sm_dist() or is_herring()
     
@@ -69,7 +64,6 @@ def main(cfg):
         logger = logging.getLogger("main_process_logger")
     else:
         logger = None
-    gc.disable()
     if use_smd:
         import smdistributed.dataparallel.torch.distributed as dist
         from smdistributed.dataparallel.torch.parallel.distributed import DistributedDataParallel as DDP

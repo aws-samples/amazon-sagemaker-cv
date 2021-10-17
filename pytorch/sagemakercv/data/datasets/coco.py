@@ -1,13 +1,19 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 import torch
 import torchvision
-from torchvision.io.image import ImageReadMode
+# from torchvision.io.image import ImageReadMode
 import torch.multiprocessing as mp
 
 from sagemakercv.core.structures.image_list import ImageList, to_image_list
 from sagemakercv.core.structures.bounding_box import BoxList
 from sagemakercv.core.structures.segmentation_mask import SegmentationMask
 from sagemakercv.core.structures.keypoint import PersonKeypoints
+
+from awsio.python.lib.io.s3.s3dataset import S3BaseClass
+import _pywrap_s3_io
+
+from PIL import Image
+import io
 
 import os
 import pickle
@@ -111,7 +117,7 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
             # return decoded raw image as byte tensor
             #orig_img, _ = super(COCODataset, self).__getitem__(idx)
             #orig_img_tensor = torchvision.transforms.functional.to_tensor(orig_img)
-            img = torchvision.io.read_image(self.get_raw_img_info(idx), ImageReadMode.RGB)
+            img = torchvision.io.read_image(self.get_raw_img_info(idx), 3) #ImageReadMode.RGB)
             #print("orig_img.size = %s, img.shape = %s, orig_img_tensor.shape = %s" % (str(orig_img.size), str(img.shape), str(orig_img_tensor.shape)))
             target = self.get_target(idx)
             return img, target, idx
@@ -135,6 +141,104 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         img_data = self.coco.imgs[img_id]
         return img_data
 
+    def get_raw_img_info(self, index):
+        img_id = self.ids[index]
+        path = self.coco.loadImgs(img_id)[0]['file_name']
+        return os.path.join(self.root, path)
+
+    def get_target(self, index, pin_memory=False):
+        img_id = self.ids[index]
+        ann_ids = self.coco.getAnnIds(imgIds=img_id)
+        anno = self.coco.loadAnns(ann_ids)
+        img_size = (self.coco.imgs[img_id]["width"], self.coco.imgs[img_id]["height"])
+        return self.build_target(anno, img_size, pin_memory=pin_memory)
+
+class S3COCODataset(S3BaseClass, torchvision.datasets.coco.CocoDetection):
+    
+    def __init__(self, ann_file, root, remove_images_without_annotations, transforms=None, pkl_ann_file=None):
+        print("Reading objects from S3")
+        S3BaseClass.__init__(self, root)
+        print("{} objects found".format(len(self.urls_list)))
+        if pkl_ann_file and os.path.exists(pkl_ann_file):
+            with open(pkl_ann_file, "rb") as f:
+                unpickled = pickle.loads(f.read())
+                self.root = root
+                self.coco = unpickled["coco"]
+                self.ids = unpickled["ids"]
+                self.transform = None
+                self.target_transform = None
+                self.transforms = None
+        else:
+            torchvision.datasets.coco.CocoDetection.__init__(self, root, ann_file)
+            self.ids = sorted(self.ids)
+        self.handler = None
+        if remove_images_without_annotations:
+            ids = []
+            for img_id in self.ids:
+                ann_ids = self.coco.getAnnIds(imgIds=img_id, iscrowd=None)
+                anno = self.coco.loadAnns(ann_ids)
+                if has_valid_annotation(anno):
+                    ids.append(img_id)
+            self.ids = ids
+        self.json_category_id_to_contiguous_id = {
+            v: i + 1 for i, v in enumerate(self.coco.getCatIds())
+        }
+        self.contiguous_category_id_to_json_id = {
+            v: k for k, v in self.json_category_id_to_contiguous_id.items()
+        }
+        self.id_to_img_map = {k: v for k, v in enumerate(self.ids)}
+        self._transforms = transforms
+        
+    def build_target(self, anno, img_size, pin_memory=False):
+        # filter crowd annotations
+        # TODO might be better to add an extra field
+        anno = [obj for obj in anno if obj["iscrowd"] == 0]
+
+        boxes = [obj["bbox"] for obj in anno]
+        boxes = torch.tensor(boxes, dtype=torch.float32, pin_memory=pin_memory).reshape(-1, 4) # guard against no boxes
+        target = BoxList(boxes, img_size, mode="xywh").convert("xyxy")
+
+        classes = [obj["category_id"] for obj in anno]
+        classes = [self.json_category_id_to_contiguous_id[c] for c in classes]
+        classes = torch.tensor(classes, dtype=torch.float32, pin_memory=pin_memory)
+        target.add_field("labels", classes)
+
+        masks = [obj["segmentation"] for obj in anno]
+        masks = SegmentationMask(masks, img_size, pin_memory=pin_memory)
+        target.add_field("masks", masks)
+
+        if anno and "keypoints" in anno[0]:
+            keypoints = [obj["keypoints"] for obj in anno]
+            keypoints = PersonKeypoints(keypoints, img_size)
+            target.add_field("keypoints", keypoints)
+
+        target = target.clip_to_image(remove_empty=True)
+        return target
+    
+    def _load_image(self, image_id: int):
+        if self.handler == None:
+            self.handler = _pywrap_s3_io.S3Init()
+        filename = os.path.join(self.root, self.coco.loadImgs(image_id)[0]["file_name"])
+        fileobj = self.handler.s3_read(filename)
+        return Image.open(io.BytesIO(fileobj)).convert("RGB")
+    
+    def _load_target(self, image_id: int):
+        return self.coco.loadAnns(self.coco.getAnnIds(image_id))
+    
+    def __getitem__(self, idx):
+        image_id = self.ids[idx]
+        img = self._load_image(image_id)
+        anno = self._load_target(image_id)
+        target = self.build_target(anno, img.size)
+        if self._transforms is not None:
+                img, target = self._transforms(img, target)
+        return img, target, idx
+        
+    def get_img_info(self, index):
+        img_id = self.id_to_img_map[index]
+        img_data = self.coco.imgs[img_id]
+        return img_data
+    
     def get_raw_img_info(self, index):
         img_id = self.ids[index]
         path = self.coco.loadImgs(img_id)[0]['file_name']
@@ -224,7 +328,7 @@ def hybrid_loader_worker(rank, size, batch_sampler, dataset, txbufs, q):
         if i % size == rank:
             metadata = []
             for idx, txbuf in zip(batch, txbufs[j]):
-                img = torchvision.io.read_image(dataset.get_raw_img_info(idx), ImageReadMode.RGB)
+                img = torchvision.io.read_image(dataset.get_raw_img_info(idx), 3) # ImageReadMode.RGB)
                 txbuf[:img.numel()].copy_(img.flatten())
                 metadata.append( (list(img.size()), idx) )
             q.put( (j, metadata) )
@@ -310,7 +414,7 @@ class HybridDataLoader3(object):
     def __next__(self):
         images, targets, idxs = [], [], []
         for idx in next(self.batch_sampler):
-            raw_image = torchvision.io.read_image(self.dataset.get_raw_img_info(idx), ImageReadMode.RGB).pin_memory().to(device='cuda', non_blocking=True)
+            raw_image = torchvision.io.read_image(self.dataset.get_raw_img_info(idx), 3).pin_memory().to(device='cuda', non_blocking=True) # ImageReadMode.RGB).pin_memory().to(device='cuda', non_blocking=True)
             raw_target = self.dataset.get_target(idx, pin_memory=True)
             image, target = self.transforms(raw_image, raw_target)
             images.append( image )

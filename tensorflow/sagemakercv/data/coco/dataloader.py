@@ -250,12 +250,13 @@ class CocoInputReader(object):
             data_options.experimental_optimization.map_and_filter_fusion = True
             data_options.experimental_optimization.map_fusion = True
             data_options.experimental_optimization.map_parallelization = True
+            
+            if int(tf.__version__.split('.')[1])<6:
+                map_vectorization_options = tf.data.experimental.MapVectorizationOptions()
+                map_vectorization_options.enabled = True
+                map_vectorization_options.use_choose_fastest = True
 
-            map_vectorization_options = tf.data.experimental.MapVectorizationOptions()
-            map_vectorization_options.enabled = True
-            map_vectorization_options.use_choose_fastest = True
-
-            data_options.experimental_optimization.map_vectorization = map_vectorization_options
+                data_options.experimental_optimization.map_vectorization = map_vectorization_options
 
             data_options.experimental_optimization.noop_elimination = True
             data_options.experimental_optimization.parallel_batch = True

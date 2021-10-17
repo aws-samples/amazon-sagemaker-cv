@@ -14,6 +14,7 @@ class AMP_Hook(Hook):
     
     def before_run(self, runner):
         if self.opt_level=='O4':
+            runner.model.half()
             if "MLPerf" in str(runner.optimizer):
                 runner.optimizer = MLPerfFP16Optimizer(runner.optimizer, 
                                                    dynamic_loss_scale=True)

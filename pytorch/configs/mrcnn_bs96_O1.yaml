@@ -7,10 +7,10 @@ HOOKS:
   - "TextLoggerHook"
   - "COCOEvaluation"
 INPUT:
-  TRAIN_INPUT_DIR: "/opt/ml/input/data/coco/train2017"
-  VAL_INPUT_DIR: "/opt/ml/input/data/coco/val2017"
-  TRAIN_ANNO_DIR: "/opt/ml/input/data/coco/annotations/instances_train2017.json"
-  VAL_ANNO_DIR: "/opt/ml/input/data/coco/annotations/instances_val2017.json"
+  TRAIN_INPUT_DIR: "s3://jbsnyder-sagemaker-pdx/data/coco/2017/train2017/"
+  VAL_INPUT_DIR: "/opt/ml/input/data/evaluation/"
+  TRAIN_ANNO_DIR: "/opt/ml/input/data/annotations/instances_train2017.json"
+  VAL_ANNO_DIR: "/opt/ml/input/data/annotations/instances_val2017.json"
 SOLVER:
   OPTIMIZER: "NovoGrad"
   BASE_LR: 0.018
@@ -71,4 +71,4 @@ DATASETS:
   TEST: ("coco_2017_val",)
 DATALOADER:
   SIZE_DIVISIBILITY: 32
-  NUM_WORKERS: 4
+  NUM_WORKERS: 16

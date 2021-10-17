@@ -3,7 +3,7 @@
 import bisect
 import copy
 import logging
-
+import torch
 import torch.utils.data
 from sagemakercv.utils.comm import get_world_size
 from sagemakercv.utils.imports import import_file
@@ -141,7 +141,7 @@ def make_coco_dataloader(cfg, is_train=True, is_distributed=False, start_iter=0,
     args['ann_file'] = cfg.INPUT.TRAIN_ANNO_DIR if is_train else cfg.INPUT.VAL_ANNO_DIR
     args["remove_images_without_annotations"] = is_train
     args["transforms"] = transforms
-    dataset = D.COCODataset(**args)
+    dataset = D.S3COCODataset(**args) if args['root'].lower().startswith("s3://") else D.COCODataset(**args)
     epoch_size = len(dataset)
     iterations_per_epoch = epoch_size // images_per_batch + 1
     sampler = make_data_sampler(dataset, is_train, is_distributed)
@@ -149,7 +149,7 @@ def make_coco_dataloader(cfg, is_train=True, is_distributed=False, start_iter=0,
             dataset, sampler, aspect_grouping, images_per_gpu, num_iters, start_iter, random_number_generator,
         )
     collator = BatchCollator(cfg.DATALOADER.SIZE_DIVISIBILITY, shapes, False)
-    num_workers = cfg.DATALOADER.NUM_WORKERS
+    num_workers = cfg.DATALOADER.NUM_WORKERS if is_train else 0
     data_loader = torch.utils.data.DataLoader(
             dataset,
             num_workers=num_workers,

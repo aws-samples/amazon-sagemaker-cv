@@ -2,6 +2,7 @@ from .hook import Hook
 from sagemakercv.inference.tester import test
 from sagemakercv.utils.async_evaluator import init, get_evaluator, set_epoch_tag
 from sagemakercv.utils.comm import master_only
+from sagemakercv.utils.comm import get_world_size
 from ..builder import HOOKS
 from time import sleep
 
@@ -62,4 +63,4 @@ class COCOEvaluation(Hook):
     
 @HOOKS.register("COCOEvaluation")
 def build_coco_eval_hook(cfg):
-    return COCOEvaluation(per_epoch=cfg.TEST.PER_EPOCH_EVAL)
+    return COCOEvaluation(distributed=get_world_size()>1, per_epoch=cfg.TEST.PER_EPOCH_EVAL)

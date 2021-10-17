@@ -20,6 +20,8 @@ def evaluate(dataset, predictions, output_folder, **kwargs):
     )
     if isinstance(dataset, datasets.COCODataset):
         return coco_evaluation(**args)
+    if isinstance(dataset, datasets.S3COCODataset):
+        return coco_evaluation(**args)
     elif isinstance(dataset, datasets.PascalVOCDataset):
         return voc_evaluation(**args)
     else:
