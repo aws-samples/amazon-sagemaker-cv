@@ -12,8 +12,8 @@ PATHS:
     VAL_ANNOTATIONS: "/tmp/maskrcnn/annotations/instances_val2017.json"
     OUT_DIR: "/tmp/maskrcnn/checkpoints"
 INPUT:
-    TRAIN_BATCH_SIZE: 64
-    EVAL_BATCH_SIZE: 64
+    TRAIN_BATCH_SIZE: 96
+    EVAL_BATCH_SIZE: 96
 MODEL:
     DENSE:
         PRE_NMS_TOP_N_TRAIN: 2000
@@ -30,6 +30,6 @@ SOLVER:
     LR: 0.002
     BETA_1: 0.9
     BETA_2: 0.5
-    MAX_ITERS: 1848
+    MAX_ITERS: 45000
     WARMUP_STEPS: 750
 

@@ -60,7 +60,7 @@ def get_dist_info():
     size = MPI_size()
     local_size = MPI_local_size()
     return rank, local_rank, size, local_size
-    
+
 def master_only(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -68,8 +68,8 @@ def master_only(func):
         if rank == 0:
             return func(*args, **kwargs)
     return wrapper
-    
-    
+
+
 # Source: https://github.com/horovod/horovod/blob/c3626e/test/common.py#L25
 def mpi_env_MPI_rank_and_size():
     """Get MPI rank and size from environment variables and return them as a
@@ -109,7 +109,7 @@ def is_sm_dist():
     This has not been tested
     """
     sm_training_env = os.environ.get('SM_TRAINING_ENV', None)
-    if not isinstance(sm_training_env, dict):
+    if sm_training_env is None:
         return False
     sm_training_env = json.loads(sm_training_env)
     additional_framework_parameters = sm_training_env.get('additional_framework_parameters', None)

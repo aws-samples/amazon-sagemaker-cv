@@ -8,10 +8,11 @@ from sagemakercv.utils.dist_utils import get_dist_info, MPI_size, is_sm_dist
 from sagemakercv.data.coco import evaluation
 import tensorflow as tf
 
-#if is_sm_dist():
-if True:
+if is_sm_dist():
+    print('SMDDP')
     import smdistributed.dataparallel.tensorflow.keras as dist
 else:
+    print('Horovod')
     import horovod.keras as dist
 
 dist.init()
