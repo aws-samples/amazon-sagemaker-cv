@@ -28,11 +28,11 @@ tf.config.optimizer.set_jit(cfg.SOLVER.XLA)
 
 def main(cfg):
     dataset = build_dataset(cfg)
-    detector = build_detector(cfg)
+    detector_model = build_detector(cfg)
 
     optimizer = tf.keras.optimizers.SGD(learning_rate=0.01 * cfg.INPUT.TRAIN_BATCH_SIZE / 8)
     optimizer = dist.DistributedOptimizer(optimizer)
-    detector.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(), optimizer=optimizer)
+    detector_model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(), optimizer=optimizer)
 
     steps_per_epoch = cfg.SOLVER.NUM_IMAGES // cfg.INPUT.TRAIN_BATCH_SIZE
     #epochs = cfg.SOLVER.MAX_ITERS // steps_per_epoch + 1
@@ -40,23 +40,28 @@ def main(cfg):
 
     callbacks = [dist.callbacks.BroadcastGlobalVariablesCallback(0)]
 
-    detector.fit(x=dataset,
-                 steps_per_epoch=steps_per_epoch,
-                 epochs=epochs,
-                 callbacks=callbacks,
-                 verbose=1 if rank == 0 else 0)
+    detector_model.fit(x=dataset,
+                       steps_per_epoch=steps_per_epoch,
+                       epochs=epochs,
+                       callbacks=callbacks,
+                       verbose=1 if rank == 0 else 0)
+
+    evaluate(cfg, detector_model)
+
+def evaluate(cfg, detector_model):
+    eval_dataset = build_dataset(cfg, mode='eval')
+    coco_prediction = detector_model.predict(x=eval_dataset)
+
+    imgIds, box_predictions, mask_predictions = evaluation.process_prediction(coco_prediction)
+    box_predictions_mpi_list = dist.gather(box_predictions, root=0)
 
     if rank == 0:
-        eval_dataset = build_dataset(cfg, mode='eval')
-
-        coco_prediction = detector.predict(x=eval_dataset)
-        imgIds, box_predictions, mask_predictions = evaluation.process_prediction(coco_prediction)
-        print(box_predictions)
+        box_predictions = []
+        for i in box_predictions_mpi_list:
+            box_predictions.extend(i)
         predictions = {'bbox': box_predictions}
         stat_dict = evaluation.evaluate_coco_predictions(cfg.PATHS.VAL_ANNOTATIONS, predictions.keys(), predictions, verbose=False)
-
         print(stat_dict)
-
 
 def parse():
     parser = argparse.ArgumentParser(description='Load model configuration')
