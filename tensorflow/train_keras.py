@@ -49,12 +49,14 @@ def main(cfg):
     if rank == 0:
         eval_dataset = build_dataset(cfg, mode='eval')
 
-        predictions = detector.predict(x=eval_dataset)
-
-        annotations_file = cfg.PATHS.VAL_ANNOTATIONS
-        stat_dict = evaluation.evaluate_coco_predictions(annotations_file, predictions.keys(), predictions, verbose=False)
+        coco_prediction = detector.predict(x=eval_dataset)
+        imgIds, box_predictions, mask_predictions = evaluation.process_prediction(coco_prediction)
+        print(box_predictions)
+        predictions = {'bbox': box_predictions}
+        stat_dict = evaluation.evaluate_coco_predictions(cfg.PATHS.VAL_ANNOTATIONS, predictions.keys(), predictions, verbose=False)
 
         print(stat_dict)
+
 
 def parse():
     parser = argparse.ArgumentParser(description='Load model configuration')
