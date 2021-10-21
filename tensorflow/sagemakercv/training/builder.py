@@ -26,16 +26,20 @@ TRAINERS = Registry()
 
 # TODO Add losses to builders
 
-def build_scheduler(cfg):
+def build_scheduler(cfg, keras=False):
     scheduler = SCHEDULERS[cfg.SOLVER.SCHEDULE](cfg)
-    if cfg.SOLVER.WARMUP:
+
+    # temporily remove warmup for keras
+    if cfg.SOLVER.WARMUP and not keras:
         scheduler = SCHEDULERS[cfg.SOLVER.WARMUP](cfg, scheduler)
     return scheduler
 
-def build_optimizer(cfg, loss_scale=True):
-    scheduler = build_scheduler(cfg)
+def build_optimizer(cfg, keras=False):
+    scheduler = build_scheduler(cfg, keras)
     optimizer = OPTIMIZERS[cfg.SOLVER.OPTIMIZER](cfg, scheduler)
-    if cfg.SOLVER.FP16 and loss_scale:
+
+    # keras does loss_scale automatically
+    if cfg.SOLVER.FP16 and not keras:
         optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer,
                                                                 dynamic=True,
                                                                 initial_scale=2 ** 15,

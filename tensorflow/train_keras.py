@@ -32,9 +32,8 @@ def main(cfg):
     dataset = build_dataset(cfg)
     detector_model = build_detector(cfg)
 
-    optimizer = tf.keras.optimizers.SGD(learning_rate=0.01 * cfg.INPUT.TRAIN_BATCH_SIZE / 8)
-    #optimizer = build_optimizer(cfg, loss_scale=False) # keras does loss_scale automatically
-    #print(type(optimizer))
+    optimizer = build_optimizer(cfg, keras=True)
+
     optimizer = dist.DistributedOptimizer(optimizer)
     detector_model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(), optimizer=optimizer)
 
