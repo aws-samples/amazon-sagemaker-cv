@@ -65,7 +65,7 @@ def evaluate(cfg, detector_model):
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
     box_predictions_mpi_list = comm.gather(box_predictions, root=0)
-    mask_predictions_mpi_list = self.comm.gather(mask_predictions, root=0)
+    mask_predictions_mpi_list = comm.gather(mask_predictions, root=0)
 
     if rank == 0:
         box_predictions = []
