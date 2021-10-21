@@ -51,8 +51,6 @@ def main(cfg):
                        callbacks=callbacks,
                        verbose=1 if rank == 0 else 0)
 
-    evaluate(cfg, detector_model)
-
 def evaluate(cfg, detector_model):
     eval_dataset = build_dataset(cfg, mode='eval')
     coco_prediction = detector_model.predict(x=eval_dataset)

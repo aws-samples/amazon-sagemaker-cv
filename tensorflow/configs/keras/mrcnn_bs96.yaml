@@ -1,5 +1,3 @@
-HOOKS:
-    - "CocoEvaluator"
 PATHS:
     TRAIN_FILE_PATTERN: "/opt/ml/input/data/train/train/train*"
     VAL_FILE_PATTERN: "/opt/ml/input/data/train/val/val*"
