@@ -4,6 +4,7 @@ import argparse
 from configs import cfg
 from sagemakercv.detection import build_detector
 from sagemakercv.data import build_dataset
+from sagemakercv.training import build_optimizer
 from sagemakercv.utils.dist_utils import get_dist_info, MPI_size, is_sm_dist
 from sagemakercv.data.coco import evaluation
 import tensorflow as tf
@@ -30,7 +31,9 @@ def main(cfg):
     dataset = build_dataset(cfg)
     detector_model = build_detector(cfg)
 
-    optimizer = tf.keras.optimizers.SGD(learning_rate=0.01 * cfg.INPUT.TRAIN_BATCH_SIZE / 8)
+    #optimizer = tf.keras.optimizers.SGD(learning_rate=0.01 * cfg.INPUT.TRAIN_BATCH_SIZE / 8)
+    optimizer = build_optimizer(cfg)
+    print(type(optimizer))
     optimizer = dist.DistributedOptimizer(optimizer)
     detector_model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(), optimizer=optimizer)
 
@@ -60,7 +63,10 @@ def evaluate(cfg, detector_model):
         for i in box_predictions_mpi_list:
             box_predictions.extend(i)
         predictions = {'bbox': box_predictions}
-        stat_dict = evaluation.evaluate_coco_predictions(cfg.PATHS.VAL_ANNOTATIONS, predictions.keys(), predictions, verbose=False)
+
+        import contextlib
+        with contextlib.redirect_stdout(None):
+            stat_dict = evaluation.evaluate_coco_predictions(cfg.PATHS.VAL_ANNOTATIONS, predictions.keys(), predictions, verbose=False)
         print(stat_dict)
 
 def parse():

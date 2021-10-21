@@ -1,9 +1,4 @@
-LOG_INTERVAL: 50
 HOOKS:
-    - "CheckpointHook"
-    - "IterTimerHook"
-    - "TextLoggerHook"
-    - "TensorboardMetricsLogger"
     - "CocoEvaluator"
 PATHS:
     TRAIN_FILE_PATTERN: "/opt/ml/input/data/train/train/train*"
@@ -30,6 +25,6 @@ SOLVER:
     LR: 0.002
     BETA_1: 0.9
     BETA_2: 0.5
-    MAX_ITERS: 1848
+    MAX_ITERS: 2000
     WARMUP_STEPS: 750
 
