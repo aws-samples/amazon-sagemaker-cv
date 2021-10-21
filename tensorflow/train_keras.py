@@ -10,7 +10,7 @@ from sagemakercv.data.coco import evaluation
 import tensorflow as tf
 
 def is_sm_dist():
-    return False
+    return True
 
 if is_sm_dist():
     import smdistributed.dataparallel.tensorflow.keras as dist
@@ -32,15 +32,15 @@ def main(cfg):
     dataset = build_dataset(cfg)
     detector_model = build_detector(cfg)
 
-    #optimizer = tf.keras.optimizers.SGD(learning_rate=0.01 * cfg.INPUT.TRAIN_BATCH_SIZE / 8)
-    optimizer = build_optimizer(cfg, loss_scale=False) # keras does loss_scale automatically
-    print(type(optimizer))
+    optimizer = tf.keras.optimizers.SGD(learning_rate=0.01 * cfg.INPUT.TRAIN_BATCH_SIZE / 8)
+    #optimizer = build_optimizer(cfg, loss_scale=False) # keras does loss_scale automatically
+    #print(type(optimizer))
     optimizer = dist.DistributedOptimizer(optimizer)
     detector_model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(), optimizer=optimizer)
 
     #steps_per_epoch = cfg.SOLVER.NUM_IMAGES // cfg.INPUT.TRAIN_BATCH_SIZE
     #epochs = cfg.SOLVER.MAX_ITERS // steps_per_epoch + 1
-    steps_per_epoch = 50
+    steps_per_epoch = 100
     epochs = 1
 
     callbacks = [dist.callbacks.BroadcastGlobalVariablesCallback(0)]
@@ -56,7 +56,6 @@ def main(cfg):
 def evaluate(cfg, detector_model):
     eval_dataset = build_dataset(cfg, mode='eval')
     coco_prediction = detector_model.predict(x=eval_dataset)
-
     imgIds, box_predictions, mask_predictions = evaluation.process_prediction(coco_prediction)
 
     if is_sm_dist():
@@ -66,6 +65,7 @@ def evaluate(cfg, detector_model):
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
     box_predictions_mpi_list = comm.gather(box_predictions, root=0)
+    mask_predictions_mpi_list = self.comm.gather(mask_predictions, root=0)
 
     if rank == 0:
         box_predictions = []
@@ -73,9 +73,12 @@ def evaluate(cfg, detector_model):
             box_predictions.extend(i)
         predictions = {'bbox': box_predictions}
 
-        import contextlib
-        with contextlib.redirect_stdout(None):
-            stat_dict = evaluation.evaluate_coco_predictions(cfg.PATHS.VAL_ANNOTATIONS, predictions.keys(), predictions, verbose=False)
+        if cfg.MODEL.INCLUDE_MASK:
+            for i in mask_predictions_mpi_list:
+                mask_predictions.extend(i)
+            predictions['segm'] = mask_predictions
+
+        stat_dict = evaluation.evaluate_coco_predictions(cfg.PATHS.VAL_ANNOTATIONS, predictions.keys(), predictions, verbose=False)
         print(stat_dict)
 
 def parse():

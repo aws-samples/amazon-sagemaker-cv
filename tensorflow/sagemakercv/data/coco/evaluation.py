@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import numpy as np
 import cv2
 import pycocotools.mask as maskUtils
@@ -134,7 +135,7 @@ def format_predictions(image_id,
                        rles):
     box_predictions = []
     mask_predictions = []
-    
+
     detection_count = len(detection_scores)
     for i in range(detection_count):
         box_predictions.append({'image_id': int(image_id),
@@ -143,7 +144,7 @@ def format_predictions(image_id,
                                 'score': float(detection_scores[i])})
         if rles:
             segmentation = {'size': rles[i]['size'],
-                            'counts': rles[i]['counts'].decode()} 
+                            'counts': rles[i]['counts'].decode()}
             mask_predictions.append({'image_id': int(image_id),
                                      'category_id': int(detection_classes[i]),
                                      'score': float(detection_scores[i]),
@@ -153,14 +154,14 @@ def format_predictions(image_id,
 
 def process_prediction(prediction):
     prediction.update({'detection_boxes':
-                       process_boxes(prediction['image_info'], 
+                       process_boxes(prediction['image_info'],
                                      prediction['detection_boxes'])})
     batch_size = prediction['num_detections'].shape[0]
-    
+
     box_predictions = []
     mask_predictions = []
     imgIds = []
-    
+
     for i in range(batch_size):
         detection_boxes = prediction['detection_boxes'][i]
         detection_classes = prediction['detection_classes'][i]
@@ -185,8 +186,8 @@ def process_prediction(prediction):
         imgIds.append(source_id)
         box_predictions.extend(formatted_predictions[0])
         mask_predictions.extend(formatted_predictions[1])
-    
-    
+
+
     return imgIds, box_predictions, mask_predictions
 
 def build_output_dict(iou, stats, verbose=False):
@@ -212,7 +213,8 @@ def evaluate_coco_predictions(annotations_file, iou_types, predictions, verbose=
     cocoGt = COCO(annotation_file=annotations_file, use_ext=True)
     stat_dict = dict()
     for iou in iou_types:
-        cocoDt = cocoGt.loadRes(predictions[iou], use_ext=True)
+        with contextlib.redirect_stdout(None):
+            cocoDt = cocoGt.loadRes(predictions[iou], use_ext=True)
         cocoEval = COCOeval(cocoGt, cocoDt, iouType=iou, use_ext=True)
         cocoEval.evaluate()
         cocoEval.accumulate()
