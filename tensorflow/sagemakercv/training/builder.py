@@ -32,13 +32,13 @@ def build_scheduler(cfg):
         scheduler = SCHEDULERS[cfg.SOLVER.WARMUP](cfg, scheduler)
     return scheduler
 
-def build_optimizer(cfg):
+def build_optimizer(cfg, loss_scale=True):
     scheduler = build_scheduler(cfg)
     optimizer = OPTIMIZERS[cfg.SOLVER.OPTIMIZER](cfg, scheduler)
-    if cfg.SOLVER.FP16:
-        optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer, 
-                                                                dynamic=True, 
-                                                                initial_scale=2 ** 15, 
+    if cfg.SOLVER.FP16 and loss_scale:
+        optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer,
+                                                                dynamic=True,
+                                                                initial_scale=2 ** 15,
                                                                 dynamic_growth_steps=2000
                                                                )
         # optimizer = tf.keras.mixed_precision.experimental.LossScaleOptimizer(optimizer, 'dynamic')

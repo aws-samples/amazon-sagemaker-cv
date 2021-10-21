@@ -9,11 +9,12 @@ from sagemakercv.utils.dist_utils import get_dist_info, MPI_size, is_sm_dist
 from sagemakercv.data.coco import evaluation
 import tensorflow as tf
 
+def is_sm_dist():
+    return False
+
 if is_sm_dist():
-    print('SMDDP')
     import smdistributed.dataparallel.tensorflow.keras as dist
 else:
-    print('Horovod')
     import horovod.keras as dist
 
 dist.init()
@@ -32,13 +33,14 @@ def main(cfg):
     detector_model = build_detector(cfg)
 
     #optimizer = tf.keras.optimizers.SGD(learning_rate=0.01 * cfg.INPUT.TRAIN_BATCH_SIZE / 8)
-    optimizer = build_optimizer(cfg)
+    optimizer = build_optimizer(cfg, loss_scale=False) # keras does loss_scale automatically
     print(type(optimizer))
     optimizer = dist.DistributedOptimizer(optimizer)
     detector_model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(), optimizer=optimizer)
 
-    steps_per_epoch = cfg.SOLVER.NUM_IMAGES // cfg.INPUT.TRAIN_BATCH_SIZE
+    #steps_per_epoch = cfg.SOLVER.NUM_IMAGES // cfg.INPUT.TRAIN_BATCH_SIZE
     #epochs = cfg.SOLVER.MAX_ITERS // steps_per_epoch + 1
+    steps_per_epoch = 50
     epochs = 1
 
     callbacks = [dist.callbacks.BroadcastGlobalVariablesCallback(0)]
@@ -56,7 +58,14 @@ def evaluate(cfg, detector_model):
     coco_prediction = detector_model.predict(x=eval_dataset)
 
     imgIds, box_predictions, mask_predictions = evaluation.process_prediction(coco_prediction)
-    box_predictions_mpi_list = dist.gather(box_predictions, root=0)
+
+    if is_sm_dist():
+        from smdistributed.dataparallel.tensorflow import get_worker_comm
+        comm = get_worker_comm()
+    else:
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+    box_predictions_mpi_list = comm.gather(box_predictions, root=0)
 
     if rank == 0:
         box_predictions = []
