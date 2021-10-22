@@ -5,17 +5,11 @@ from configs import cfg
 from sagemakercv.detection import build_detector
 from sagemakercv.data import build_dataset
 from sagemakercv.training import build_optimizer
-from sagemakercv.utils.dist_utils import get_dist_info, MPI_size, is_sm_dist
+from sagemakercv.utils.dist_utils import get_dist_info, MPI_size
 from sagemakercv.data.coco import evaluation
 import tensorflow as tf
 
-def is_sm_dist():
-    return True
-
-if is_sm_dist():
-    import smdistributed.dataparallel.tensorflow.keras as dist
-else:
-    import horovod.keras as dist
+import smdistributed.dataparallel.tensorflow.keras as dist
 
 dist.init()
 
@@ -34,6 +28,7 @@ def main(cfg):
 
     optimizer = build_optimizer(cfg, keras=True)
 
+    # SMDDP optimized allreduce is wrapped into Distributed Optimizer
     optimizer = dist.DistributedOptimizer(optimizer)
 
     detector_model.compile(optimizer=optimizer)
@@ -57,12 +52,9 @@ def evaluate(cfg, detector_model):
     coco_prediction = detector_model.predict(x=eval_dataset)
     imgIds, box_predictions, mask_predictions = evaluation.process_prediction(coco_prediction)
 
-    if is_sm_dist():
-        from smdistributed.dataparallel.tensorflow import get_worker_comm
-        comm = get_worker_comm()
-    else:
-        from mpi4py import MPI
-        comm = MPI.COMM_WORLD
+    from smdistributed.dataparallel.tensorflow import get_worker_comm
+    comm = get_worker_comm()
+
     imgIds_mpi_list = comm.gather(imgIds, root=0)
     box_predictions_mpi_list = comm.gather(box_predictions, root=0)
     mask_predictions_mpi_list = comm.gather(mask_predictions, root=0)
