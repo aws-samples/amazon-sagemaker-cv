@@ -38,6 +38,7 @@ def main(cfg):
 
     callbacks = [dist.callbacks.BroadcastGlobalVariablesCallback(0)]
 
+    # using TwoStageDetector
     detector_model.fit(x=dataset,
                        steps_per_epoch=steps_per_epoch,
                        epochs=epochs,

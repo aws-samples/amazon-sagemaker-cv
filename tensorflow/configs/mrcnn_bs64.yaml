@@ -1,8 +1,8 @@
 LOG_INTERVAL: 50
-HOOKS: 
-    - "CheckpointHook" 
+HOOKS:
+    - "CheckpointHook"
     - "IterTimerHook"
-    - "TextLoggerHook" 
+    - "TextLoggerHook"
     - "TensorboardMetricsLogger"
     - "CocoEvaluator"
 PATHS:
@@ -33,5 +33,3 @@ SOLVER:
     MAX_ITERS: 25000
     WARMUP_STEPS: 750
     WEIGHT_DECAY: 0.0001
-    
-    
