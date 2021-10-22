@@ -39,9 +39,7 @@ def main(cfg):
     detector_model.compile(optimizer=optimizer)
 
     steps_per_epoch = cfg.SOLVER.NUM_IMAGES // cfg.INPUT.TRAIN_BATCH_SIZE
-    #epochs = cfg.SOLVER.MAX_ITERS // steps_per_epoch + 1
-    #steps_per_epoch = 100
-    epochs = 1
+    epochs = cfg.SOLVER.MAX_ITERS // steps_per_epoch + 1
 
     callbacks = [dist.callbacks.BroadcastGlobalVariablesCallback(0)]
 
@@ -50,6 +48,9 @@ def main(cfg):
                        epochs=epochs,
                        callbacks=callbacks,
                        verbose=1 if rank == 0 else 0)
+
+    # uncomment to run distributed evaluation after training
+    # evaluate(cfg, detector_model)
 
 def evaluate(cfg, detector_model):
     eval_dataset = build_dataset(cfg, mode='eval')
@@ -62,7 +63,7 @@ def evaluate(cfg, detector_model):
     else:
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
-    imgIds_mpi_list = self.comm.gather(imgIds, root=0)
+    imgIds_mpi_list = comm.gather(imgIds, root=0)
     box_predictions_mpi_list = comm.gather(box_predictions, root=0)
     mask_predictions_mpi_list = comm.gather(mask_predictions, root=0)
 
