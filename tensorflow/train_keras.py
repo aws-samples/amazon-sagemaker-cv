@@ -62,11 +62,19 @@ def evaluate(cfg, detector_model):
     else:
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
+    imgIds_mpi_list = self.comm.gather(imgIds, root=0)
     box_predictions_mpi_list = comm.gather(box_predictions, root=0)
     mask_predictions_mpi_list = comm.gather(mask_predictions, root=0)
 
     if rank == 0:
+        imgIds = []
         box_predictions = []
+        mask_predictions = []
+
+        for i in imgIds_mpi_list:
+            imgIds.extend(i)
+        print("Running Evaluation for {} images".format(len(set(imgIds))))
+
         for i in box_predictions_mpi_list:
             box_predictions.extend(i)
         predictions = {'bbox': box_predictions}
