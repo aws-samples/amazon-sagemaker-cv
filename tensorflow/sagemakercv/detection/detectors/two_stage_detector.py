@@ -66,10 +66,9 @@ class TwoStageDetector(tf.keras.models.Model):
         return loss_dict
 
     # overrided function for Keras model.compile
-    def compile(self, loss, optimizer, run_eagerly=True):
+    def compile(self, optimizer, run_eagerly=True):
         super(TwoStageDetector, self).compile(run_eagerly=run_eagerly)
         self.optimizer = optimizer
-        self.loss = loss
 
     # overrided function for Keras model.fit
     @tf.function

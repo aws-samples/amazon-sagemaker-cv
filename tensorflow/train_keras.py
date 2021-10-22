@@ -35,11 +35,12 @@ def main(cfg):
     optimizer = build_optimizer(cfg, keras=True)
 
     optimizer = dist.DistributedOptimizer(optimizer)
-    detector_model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(), optimizer=optimizer)
 
-    #steps_per_epoch = cfg.SOLVER.NUM_IMAGES // cfg.INPUT.TRAIN_BATCH_SIZE
+    detector_model.compile(optimizer=optimizer)
+
+    steps_per_epoch = cfg.SOLVER.NUM_IMAGES // cfg.INPUT.TRAIN_BATCH_SIZE
     #epochs = cfg.SOLVER.MAX_ITERS // steps_per_epoch + 1
-    steps_per_epoch = 100
+    #steps_per_epoch = 100
     epochs = 1
 
     callbacks = [dist.callbacks.BroadcastGlobalVariablesCallback(0)]
