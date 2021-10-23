@@ -22,6 +22,7 @@ logical_devices = tf.config.list_logical_devices('GPU')
 tf.config.optimizer.set_experimental_options({"auto_mixed_precision": cfg.SOLVER.FP16})
 tf.config.optimizer.set_jit(cfg.SOLVER.XLA)
 
+# main training entry point
 def main(cfg):
     dataset = build_dataset(cfg)
     detector_model = build_detector(cfg)
@@ -38,16 +39,14 @@ def main(cfg):
 
     callbacks = [dist.callbacks.BroadcastGlobalVariablesCallback(0)]
 
-    # using TwoStageDetector
+    # TwoStageDetector model
     detector_model.fit(x=dataset,
                        steps_per_epoch=steps_per_epoch,
                        epochs=epochs,
                        callbacks=callbacks,
                        verbose=1 if rank == 0 else 0)
 
-    # uncomment to run distributed evaluation after training
-    # evaluate(cfg, detector_model)
-
+# distributed evaluation
 def evaluate(cfg, detector_model):
     eval_dataset = build_dataset(cfg, mode='eval')
     coco_prediction = detector_model.predict(x=eval_dataset)
