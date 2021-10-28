@@ -24,12 +24,16 @@ class TwoStageDetector(tf.keras.models.Model):
                  backbone,
                  neck,
                  dense_head,
-                 roi_head):
+                 roi_head,
+                 global_gradient_clip_ratio=0.0,
+                 weight_decay=0.0):
         super(TwoStageDetector, self).__init__()
         self.backbone = backbone
         self.neck = neck
         self.rpn_head = dense_head
         self.roi_head = roi_head
+        self.global_gradient_clip_ratio = global_gradient_clip_ratio
+        self.weight_decay = weight_decay
 
     def call(self, features, labels=None, training=True, weight_decay=0.0):
         x = self.backbone(features['images'], training=training)
@@ -75,9 +79,19 @@ class TwoStageDetector(tf.keras.models.Model):
     def train_step(self, data_batch):
         features, labels = data_batch
         with tf.GradientTape() as tape:
-            model_outputs = self(features, labels, training=True)
+            model_outputs = self(features, labels, training=True, weight_decay=self.weight_decay)
 
         gradients = tape.gradient(model_outputs['total_loss'], self.trainable_variables)
+
+        if self.global_gradient_clip_ratio > 0.0:
+                all_are_finite = tf.reduce_all([tf.reduce_all(tf.math.is_finite(g)) for g in gradients])
+                (clipped_grads, _) = tf.clip_by_global_norm(gradients,
+                                                    clip_norm=self.global_gradient_clip_ratio,
+                                                    use_norm=tf.cond(all_are_finite,
+                                                        lambda: tf.linalg.global_norm(gradients),
+                                                        lambda: tf.constant(1.0)))
+                gradients = clipped_grads
+
         grads_and_vars = []
         for grad, var in zip(gradients, self.trainable_variables):
             if grad is not None and any([pattern in var.name for pattern in ["bias", "beta"]]):
@@ -106,4 +120,6 @@ def build_two_stage_detector(cfg):
     return detector(backbone=build_backbone(cfg),
                     neck=build_neck(cfg),
                     dense_head=build_dense_head(cfg),
-                    roi_head=build_roi_head(cfg))
+                    roi_head=build_roi_head(cfg),
+                    global_gradient_clip_ratio=cfg.SOLVER.GRADIENT_CLIP_RATIO,
+                    weight_decay = 0.0 if cfg.SOLVER.OPTIMIZER in ["NovoGrad", "Adam"] else cfg.SOLVER.WEIGHT_DECAY)

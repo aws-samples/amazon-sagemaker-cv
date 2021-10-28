@@ -1,4 +1,5 @@
 import sys
+import os
 sys.path.append('..')
 import argparse
 from configs import cfg
@@ -22,10 +23,28 @@ logical_devices = tf.config.list_logical_devices('GPU')
 tf.config.optimizer.set_experimental_options({"auto_mixed_precision": cfg.SOLVER.FP16})
 tf.config.optimizer.set_jit(cfg.SOLVER.XLA)
 
+instance_type = os.getenv("SAGEMAKER_INSTANCE_TYPE")
+if instance_type != "ml.p4d.24xlarge":
+    print('Warning: instance type is not fully supported in private preview, please use p4d.24xlarge for best performance')
+
+# load backbone weights
+def load_pretrained_weights(detector_model, dataset, cfg):
+    print('Loading checkpoint')
+    # populate weights for backbone through a forward pass
+    features, labels = next(iter(dataset))
+    _ = detector_model(features, training=False)
+
+    chkp = tf.compat.v1.train.NewCheckpointReader(cfg.PATHS.WEIGHTS)
+    weights = [chkp.get_tensor(i) for i in ['/'.join(i.name.split('/')[-2:]).split(':')[0] \
+                                                for i in detector_model.layers[0].weights]]
+    detector_model.layers[0].set_weights(weights)
+
 # main training entry point
 def main(cfg):
     dataset = build_dataset(cfg)
     detector_model = build_detector(cfg)
+
+    load_pretrained_weights(detector_model, dataset, cfg)
 
     optimizer = build_optimizer(cfg, keras=True)
 
