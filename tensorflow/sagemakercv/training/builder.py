@@ -24,11 +24,10 @@ SCHEDULERS = Registry()
 SAMPLERS = Registry()
 TRAINERS = Registry()
 
-# TODO Add losses to builders
-
 def build_scheduler(cfg, keras=False):
     scheduler = SCHEDULERS[cfg.SOLVER.SCHEDULE](cfg)
 
+    # todo: add keras compatible warmup scheduler
     if cfg.SOLVER.WARMUP and not keras:
         scheduler = SCHEDULERS[cfg.SOLVER.WARMUP](cfg, scheduler)
     return scheduler

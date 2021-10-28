@@ -1,5 +1,6 @@
 import sys
 import os
+import json
 sys.path.append('..')
 import argparse
 from configs import cfg
@@ -23,9 +24,12 @@ logical_devices = tf.config.list_logical_devices('GPU')
 tf.config.optimizer.set_experimental_options({"auto_mixed_precision": cfg.SOLVER.FP16})
 tf.config.optimizer.set_jit(cfg.SOLVER.XLA)
 
-instance_type = os.getenv("SAGEMAKER_INSTANCE_TYPE")
-if instance_type != "ml.p4d.24xlarge":
-    print('Warning: instance type is not fully supported in private preview, please use p4d.24xlarge for best performance')
+sm_framework_params = os.environ.get('SM_FRAMEWORK_PARAMS', None)
+if sm_framework_params is not None:
+    sm_framework_params_dict = json.loads(sm_framework_params)
+    instance_type = sm_framework_params_dict.get('sagemaker_instance_type', None)
+    if instance_type != 'ml.p4d.24xlarge':
+        print('Warning: instance type is not fully supported in private preview, please use p4d.24xlarge for best performance')
 
 # load backbone weights
 def load_pretrained_weights(detector_model, dataset, cfg):
