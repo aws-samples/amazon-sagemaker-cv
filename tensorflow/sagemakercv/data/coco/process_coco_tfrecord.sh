@@ -2,8 +2,8 @@ set -e
 set -x
 
 
-if [ -z "$1" ]; then
-  echo "usage download_and_preprocess_coco.sh [data dir]"
+if [ -z "$2" ]; then
+  echo "usage download_and_preprocess_coco.sh [data dir] [output dir]"
   exit
 fi
 
@@ -19,9 +19,9 @@ rm -rf tf-models
 
 # Create the output directories.
 COCO_DIR=$1
+OUTPUT_DIR=$2
 TRAIN_IMAGE_DIR=${COCO_DIR}/train2017
 VAL_IMAGE_DIR=${COCO_DIR}/val2017
-OUTPUT_DIR=$COCO_DIR/coco_tfrecord
 TRAIN_OBJECT_ANNOTATIONS_FILE=$COCO_DIR/annotations/instances_train2017.json
 VAL_OBJECT_ANNOTATIONS_FILE=$COCO_DIR/annotations/instances_val2017.json
 TRAIN_CAPTION_FILE=$COCO_DIR/annotations/captions_train2017.json

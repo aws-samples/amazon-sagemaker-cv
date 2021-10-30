@@ -7,9 +7,9 @@ from setuptools import find_packages
 from setuptools import setup
 
 if py_version=="37":
-    pycocotools_whl = "https://aws-smcv-us-west-2.s3.us-west-2.amazonaws.com/utils/binaries/pycocotools-2.0%2Bnv0.6.0-cp37-cp37m-linux_x86_64.whl"
+    pycocotools_whl = "https://aws-smcv-us-west-2.s3.us-west-2.amazonaws.com/utils/binaries/cocoapi/pycocotools-2.0%2Bnv0.6.0-cp37-cp37m-linux_x86_64.whl"
 else:
-    pycocotools_whl = "https://aws-smcv-us-west-2.s3.us-west-2.amazonaws.com/utils/binaries/pycocotools-2.0%2Bnv0.6.0-cp38-cp38-linux_x86_64.whl"
+    pycocotools_whl = "https://aws-smcv-us-west-2.s3.us-west-2.amazonaws.com/utils/binaries/cocoapi/pycocotools-2.0%2Bnv0.6.0-cp38-cp38m-linux_x86_64.whl"
     
 
 install_requires = ["tensorflow_addons",

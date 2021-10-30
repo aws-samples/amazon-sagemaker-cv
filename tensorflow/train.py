@@ -16,10 +16,13 @@ for device in devices:
     tf.config.experimental.set_memory_growth(device, True)
 tf.config.set_visible_devices([devices[local_rank]], 'GPU')
 logical_devices = tf.config.list_logical_devices('GPU')
-tf.config.optimizer.set_experimental_options({"auto_mixed_precision": cfg.SOLVER.FP16})
-tf.config.optimizer.set_jit(cfg.SOLVER.XLA)
+
 
 def main(cfg):
+    tf.config.optimizer.set_experimental_options({"auto_mixed_precision": cfg.SOLVER.FP16})
+    tf.config.optimizer.set_jit(cfg.SOLVER.XLA)
+    if int(tf.__version__.split('.')[1])>=4:
+        tf.config.experimental.enable_tensor_float_32_execution(cfg.SOLVER.TF32)
     dataset = iter(build_dataset(cfg))
     detector = build_detector(cfg)
     features, labels = next(dataset)

@@ -288,7 +288,7 @@ def _create_tf_record_from_coco_annotations(
                   category_index,
                   include_masks)
                  for image in images])):
-    if idx % 100 == 0:
+    if idx % 1000 == 0:
       tf.compat.v1.logging.info('On image %d of %d', idx, len(images))
 
     total_num_annotations_skipped += num_annotations_skipped
