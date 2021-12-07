@@ -37,13 +37,13 @@ class CocoEvaluator(Hook):
     def __init__(self, 
                  eval_dataset,
                  annotations_file, 
-                 start_epoch=1, 
+                 per_epoch=True, 
                  tensorboard=True, 
                  include_mask_head=True, 
                  verbose=False):
         self.eval_dataset = eval_dataset
         self.annotations_file = annotations_file
-        self.start_epoch = start_epoch
+        self.per_epoch = per_epoch
         if is_sm_dist():
             from smdistributed.dataparallel.tensorflow import get_worker_comm
             self.comm = get_worker_comm()
@@ -78,6 +78,17 @@ class CocoEvaluator(Hook):
                 self.comm.Barrier()
                 
     def after_run(self, runner):
+        if not self.per_epoch:
+            self.eval_running = True
+            self.threads = []
+            if dist_utils.MPI_rank() == 0:
+                runner.logger.info("Running eval for epoch {}".format(runner.epoch))
+            for i, data in enumerate(self.eval_dataset):
+                prediction = runner.trainer(data, training=False)
+                prediction = {i:j.numpy() for i,j in prediction.items()}
+                self.threads.append(self.thread_pool.submit(evaluation.process_prediction,
+                                                            prediction))
+            self.comm.Barrier()
         if dist_utils.MPI_rank() == 0:
             runner.logger.info("Processing final eval")
         while not self.threads_done():
@@ -97,7 +108,7 @@ class CocoEvaluator(Hook):
         self.comm.Barrier()
         
     def after_train_epoch(self, runner):
-        if runner.epoch >= self.start_epoch:
+        if self.per_epoch:
             self.eval_running = True
             self.threads = []
             if dist_utils.MPI_rank() == 0:
@@ -181,4 +192,5 @@ def build_coco_evaluator(cfg):
     assert Path(cfg.PATHS.VAL_ANNOTATIONS).exists()
     return CocoEvaluator(build_dataset(cfg, mode='eval'),
                          cfg.PATHS.VAL_ANNOTATIONS,
+                         per_epoch=cfg.SOLVER.EVAL_EPOCH_EVAL,
                          include_mask_head=cfg.MODEL.INCLUDE_MASK)

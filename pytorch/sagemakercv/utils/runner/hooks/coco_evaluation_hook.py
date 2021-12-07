@@ -44,8 +44,6 @@ class COCOEvaluation(Hook):
             set_epoch_tag(runner.epoch)
             results = test(runner.cfg, runner.model, self.distributed)
             self.running_eval = True
-            # temp fix for async issue
-            sleep(20)
         if runner.rank == 0:
             evaluator = get_evaluator()
             self.running_eval = False
@@ -60,6 +58,8 @@ class COCOEvaluation(Hook):
                            if runner.cfg.MODEL.MASK_ON else None
                 all_results.update({ t : (bbox_map, segm_map) })
             runner.logger.info(all_results)
+        else:
+            sleep(20)
     
 @HOOKS.register("COCOEvaluation")
 def build_coco_eval_hook(cfg):

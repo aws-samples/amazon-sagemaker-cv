@@ -156,6 +156,7 @@ _C.SOLVER.WARM_UP_RATIO = 0.1
 _C.SOLVER.WARMUP_STEPS = 500 #_C.SOLVER.STEPS_PER_EPOCH/2
 _C.SOLVER.WARMUP_OVERLAP = True
 _C.SOLVER.CHECKPOINT_INTERVAL = 1
+_C.SOLVER.EVAL_EPOCH_EVAL = True
 
 ########################################################################
 # Inference
