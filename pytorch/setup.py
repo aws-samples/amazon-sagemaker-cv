@@ -22,9 +22,12 @@ elif torch_version=="17":
     smcv_utils_whl = "https://sagemakercv.s3.us-west-2.amazonaws.com/utils/pt-1.7/smcv_utils-0.0.1-cp36-cp36m-linux_x86_64.whl"
 elif torch_version=="18":
     smcv_utils_whl = "https://sagemakercv.s3.us-west-2.amazonaws.com/utils/pt-1.8/smcv_utils-0.0.1-cp36-cp36m-linux_x86_64.whl"
-else:
+elif torch_version=="19":
     smcv_utils_whl = "https://sagemakercv.s3.us-west-2.amazonaws.com/utils/pt-1.9/smcv_utils-0.0.1-cp38-cp38-linux_x86_64.whl"
-
+else:
+    # build from source. this will take longer on training startup
+    smcv_utils_whl = "git+https://github.com/aws/amazon-sagemakercv-utils-nvidia.git"
+    
 install_requires = ["yacs", 
                     "matplotlib",
                     "mpi4py",
