@@ -21,14 +21,14 @@ def test(cfg, model, distributed):
     iou_types = ("bbox",)
     if cfg.MODEL.MASK_ON:
         iou_types = iou_types + ("segm",)
-    output_folders = [None] * len(cfg.DATASETS.TEST)
-    dataset_names = cfg.DATASETS.TEST
+    data_loaders_val = make_data_loader(cfg, is_train=False, is_distributed=distributed)
+    dataset_names = [f"evaluation_dataset_{i}" for i in range(len(data_loaders_val))] #cfg.DATASETS.TEST
+    output_folders = [None] * len(dataset_names)
     if cfg.OUTPUT_DIR:
         for idx, dataset_name in enumerate(dataset_names):
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference", dataset_name)
             mkdir(output_folder)
             output_folders[idx] = output_folder
-    data_loaders_val = make_data_loader(cfg, is_train=False, is_distributed=distributed)
 
     global _first_test
     if _first_test:

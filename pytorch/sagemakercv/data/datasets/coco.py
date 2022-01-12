@@ -14,6 +14,7 @@ import _pywrap_s3_io
 
 from PIL import Image
 import io
+import logging
 
 import os
 import pickle
@@ -21,6 +22,8 @@ import numpy as np
 
 min_keypoints_per_image = 10
 
+# keep PIL from logging exif data
+logging.getLogger('PIL').setLevel(logging.WARNING)
 
 def _count_visible_keypoints(anno):
     return sum(sum(1 for v in ann["keypoints"][2::3] if v > 0) for ann in anno)

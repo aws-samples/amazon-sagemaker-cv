@@ -104,7 +104,7 @@ def inference(
         expected_results=expected_results,
         expected_results_sigma_tol=expected_results_sigma_tol,
     )
-
+    
     return evaluate(dataset=dataset,
                     predictions=predictions,
                     output_folder=output_folder,
