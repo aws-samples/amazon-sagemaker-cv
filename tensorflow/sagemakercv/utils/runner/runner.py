@@ -208,12 +208,14 @@ class Runner(object):
             format='%(asctime)s - %(levelname)s - %(message)s', 
             level=level)
         logger = logging.getLogger(__name__)
+        # logger = tf.get_logger()
         # TODO: This is doubling up output
         logger.addHandler(logging.StreamHandler(sys.stdout))
         if log_dir and self.rank == 0:
             filename = '{}.log'.format(self.timestamp)
             log_file = os.path.join(log_dir, filename)
             self._add_file_handler(logger, log_file, level=level)
+        logger.setLevel(level)
         return logger
     
     def register_hook(self, hook, priority='NORMAL'):
