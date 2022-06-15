@@ -18,7 +18,7 @@
  ******************************************************************************/
 
 #include "Descriptors.h"
-
+#include <iostream>
 #include <ATen/ATen.h>
 
 #include <ostream>
