@@ -31,10 +31,7 @@ else:
 install_requires = ["yacs", 
                     "matplotlib",
                     "mpi4py",
-                    "opencv-python",
-                    f"pycocotools @ {pycocotools_whl}",
-                    f"smcv_utils @ {smcv_utils_whl}",
-                    f"awsio @ {awsio_whl}"]
+                    "opencv-python"]
 
 setup(
     name="sagemakercv",
