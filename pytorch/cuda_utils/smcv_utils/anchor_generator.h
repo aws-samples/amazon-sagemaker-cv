@@ -21,7 +21,7 @@
 #include <torch/extension.h>
 
 #include <ATen/ATen.h>
-#include <THC/THC.h>
+
 #include <vector>
 
 std::vector<at::Tensor> anchor_generator(at::Tensor& image_height,

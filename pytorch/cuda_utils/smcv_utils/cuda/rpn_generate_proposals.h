@@ -17,7 +17,6 @@
 #pragma once
 
 #include <ATen/ATen.h>
-#include <THC/THC.h>
 
 #include <vector>
 

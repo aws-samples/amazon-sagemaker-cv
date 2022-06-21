@@ -2,7 +2,7 @@
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDAContext.h>
 
-#include <THC/THC.h>
+
 #include <THC/THCAtomics.cuh>
 #include <THC/THCDeviceUtils.cuh>
 
@@ -466,7 +466,7 @@ at::Tensor ROIAlign_forward_cuda(const at::Tensor& input,
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
   if (output.numel() == 0) {
-    THCudaCheck(cudaGetLastError());
+    C10_CUDA_CHECK(cudaGetLastError());
     return output;
   }
 
@@ -516,7 +516,7 @@ at::Tensor ROIAlign_forward_cuda(const at::Tensor& input,
            output.data_ptr<scalar_t>());
     });
   }
-  THCudaCheck(cudaGetLastError());
+  C10_CUDA_CHECK(cudaGetLastError());
   return output;
 }
 
@@ -545,7 +545,7 @@ at::Tensor ROIAlign_backward_cuda(const at::Tensor& grad,
 
   // handle possibly empty gradients
   if (grad.numel() == 0) {
-    THCudaCheck(cudaGetLastError());
+    C10_CUDA_CHECK(cudaGetLastError());
     return grad_input;
   }
 
@@ -597,6 +597,6 @@ at::Tensor ROIAlign_backward_cuda(const at::Tensor& grad,
            rois.contiguous().data_ptr<float>());
     });
   }
-  THCudaCheck(cudaGetLastError());
+  C10_CUDA_CHECK(cudaGetLastError());
   return grad_input;
 }

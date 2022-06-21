@@ -23,7 +23,7 @@
 #include <ATen/cuda/CUDAConfig.h>
 #include <ATen/cuda/Exceptions.h>
 #include <cudnn.h>
-#include "THC/THC.h"
+
 #include "torch/torch.h"
 #include <ATen/cudnn/cudnn-wrapper.h>
 #include "Descriptors.h"

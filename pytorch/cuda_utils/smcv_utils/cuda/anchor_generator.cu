@@ -21,8 +21,8 @@
 
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDAContext.h>
-#include <THC/THCNumerics.cuh>
-#include <THC/THC.h>
+
+
 #include <cuda.h>
 #include <vector>
 
@@ -141,7 +141,7 @@ std::vector<at::Tensor> anchor_generator(
                              reinterpret_cast<float4*>(anchors.data_ptr<float>()),
                              straddle_thresh,
                              inds_inside.data_ptr<uint8_t>());
-  THCudaCheck(cudaGetLastError());
+  C10_CUDA_CHECK(cudaGetLastError());
 
   return {anchors, inds_inside};
 }

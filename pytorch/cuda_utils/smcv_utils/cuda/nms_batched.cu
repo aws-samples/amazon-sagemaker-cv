@@ -17,7 +17,7 @@
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDAContext.h>
 #include <bitset>
-#include <THC/THC.h>
+#include <ATen/ceil_div.h>
 #include <THC/THCDeviceUtils.cuh>
 #include <vector>
 #include <iostream>
@@ -49,7 +49,7 @@ __global__ void nms_reduce_batched(const int *n_boxes_arr, unsigned long long *d
   initial_pos_mask += offset;
   unsigned char *res_mask_byte = res_mask_byte_arr + offset;
  
-  const int col_blocks = THCCeilDiv(n_boxes, threadsPerBlock);
+  const int col_blocks = at::ceil_div(n_boxes, threadsPerBlock);
   //compute largest block we can fit in shared memory
   const unsigned int block_rows_max = max_shmem_size / sizeof(unsigned long long) / col_blocks - 1;
   //use intrinsics functions to compute largest block that is power of 2
@@ -136,7 +136,7 @@ __global__ void nms_kernel_batched(const int *n_boxes_arr, const float nms_overl
         t |= 1ULL << i;
       }
     }
-    const int col_blocks = THCCeilDiv(n_boxes, threadsPerBlock);
+    const int col_blocks = at::ceil_div(n_boxes, threadsPerBlock);
     dev_mask[cur_box_idx * col_blocks + col_start] = t;
   }
 }
@@ -151,12 +151,12 @@ at::Tensor nms_batched_cuda (const at::Tensor boxes_cat, const std::vector<int> 
   int total_boxes=boxes_cat.size(0);
   int n_fmaps = n_boxes_vec.size();
   int n_boxes_max = *std::max_element(n_boxes_vec.begin(), n_boxes_vec.end());
-  const int col_blocks_max = THCCeilDiv(n_boxes_max, threadsPerBlock);
+  const int col_blocks_max = at::ceil_div(n_boxes_max, threadsPerBlock);
   at::Tensor mask_dev_tensor = at::zeros({n_fmaps * n_boxes_max * col_blocks_max}, boxes_cat.options().dtype(at::kLong));
   unsigned long long *mask_dev = (unsigned long long*) mask_dev_tensor.data_ptr<int64_t>();
   at::Tensor keep = at::empty({total_boxes}, boxes_cat.options().dtype(at::kByte));
-  dim3 blocks(THCCeilDiv(n_boxes_max, threadsPerBlock),
-              THCCeilDiv(n_boxes_max, threadsPerBlock),
+  dim3 blocks(at::ceil_div(n_boxes_max, threadsPerBlock),
+              at::ceil_div(n_boxes_max, threadsPerBlock),
               n_fmaps);
   dim3 threads(threadsPerBlock);
   auto stream = at::cuda::getCurrentCUDAStream();

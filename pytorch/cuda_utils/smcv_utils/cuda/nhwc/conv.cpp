@@ -22,8 +22,8 @@
 #include <ATen/Config.h>
 #include <ATen/cuda/CUDAConfig.h>
 #include <ATen/cuda/Exceptions.h>
+#include <ATen/cuda/ThrustAllocator.h>
 
-#include "THC/THC.h"
 #include "torch/torch.h"
 #include <ATen/cudnn/cudnn-wrapper.h>
 #include "Descriptors.h"
@@ -334,14 +334,14 @@ BenchmarkCache<cudnnConvolutionBwdFilterAlgo_t> bwd_filter_algos;
 // tensor instead.
 struct Workspace {
   Workspace(size_t size) : size(size), data(NULL) {
-    data = THCudaMalloc(globalContext().lazyInitCUDA(), size);
+    data = c10::cuda::CUDACachingAllocator::raw_alloc(size);
   }
   Workspace(const Workspace&) = delete;
   Workspace(Workspace&&) = default;
   Workspace& operator=(Workspace&&) = default;
   ~Workspace() {
     if (data) {
-      THCudaFree(globalContext().lazyInitCUDA(), data);
+      c10::cuda::CUDACachingAllocator::raw_delete(data);
     }
   }
 
@@ -404,7 +404,7 @@ size_t getMaxWorkspaceSize(
   size_t tmp_bytes = 0;  // Only used for filling pointer parameters that aren't used later
 
   int device;
-  THCudaCheck(cudaGetDevice(&device));
+  C10_CUDA_CHECK(cudaGetDevice(&device));
   c10::cuda::CUDACachingAllocator::cacheInfo(device, &tmp_bytes, &max_block_size);
 
   for (int i = 0; i < n_algo; i++) {
