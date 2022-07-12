@@ -1,1 +1,0 @@
-This model uses spcialized CUDA utilities originally developed by Nvidia for MLPerf, and modified for use with SageMaker. Compiled whls are included in the setup.py file. For users who need to compile from source, the utilities can be found in [SMCV Cuda Utils](https://github.com/aws-samples/amazon-sagemaker-cv/tree/main/pytorch/cuda_utils). 
