@@ -4,11 +4,6 @@ import subprocess
 import json
 from datetime import datetime
 
-def unarchive_data(data_dir, target='coco.tar'):
-    print("Unarchiving COCO data")
-    os.system('tar -xf {0} -C {1}'.format(os.path.join(data_dir, target), data_dir))
-    print(os.listdir(data_dir))
-
 def get_training_world():
 
     """
@@ -34,9 +29,7 @@ def get_training_world():
 
 def main():
     # use tar from S3 so it loads faster
-    data_dir="/opt/ml/input/data/all_data/"
     train_script="/opt/ml/code/train.py"
-    unarchive_data(data_dir)
     world = get_training_world()
     sm_args = json.loads(os.environ["SM_HPS"])
     args = [f"--{key} {value}" for key, value in sm_args.items()]
