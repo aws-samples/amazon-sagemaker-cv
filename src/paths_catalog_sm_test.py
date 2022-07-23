@@ -10,7 +10,9 @@ class DatasetCatalog(object):
         "coco_2017_train": {
             "img_dir": "train",
             "ann_file": "annotations/instances_train2017.json",
-            "pkl_ann_file": "pkl_coco/instances_train2017.json.pickled"
+            "pkl_ann_file": None
+
+#             "pkl_ann_file": "pkl_coco/instances_train2017.json.pickled"
         },
         "coco_2017_val": {
             "img_dir": "val/",
