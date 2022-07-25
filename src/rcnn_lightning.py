@@ -106,7 +106,7 @@ class LightningGeneralizedRCNN(pl.LightningModule):
                 )
 #         pdb.set_trace()
 #         device = torch.device(self.cfg.MODEL.DEVICE)
-        prefetcher = Prefetcher(data_loader, self.device, ) if not self.arguments["use_synthetic_input"] else SyntheticDataLoader(self.device, bs=self.arguments["images_per_gpu_train"], img_h=800, img_w = 1344, annotations_per_image = 10, max_iter = 65535)
+        prefetcher = Prefetcher(data_loader, self.device, self.arguments["max_annotations_per_image"]) if not self.arguments["use_synthetic_input"] else SyntheticDataLoader(self.device, bs=self.arguments["images_per_gpu_train"], img_h=800, img_w = 1344, annotations_per_image = 10, max_iter = 65535)
     
         self.prefetcher=prefetcher
 #         pdb.set_trace()
@@ -183,7 +183,7 @@ class LightningGeneralizedRCNN(pl.LightningModule):
 #         print(c)
 #         print(d)
 #         pdb.set_trace()
-        targets = [targets[0].bbox.unsqueeze(0), torch.tensor([0.0 if i == 0 else 1.0 for i in targets[0].get_field("labels")]).unsqueeze(0).to('cuda'), targets[0].get_field("labels").unsqueeze(0), targets]
+#         targets = [targets[0].bbox.unsqueeze(0), torch.tensor([0.0 if i == 0 else 1.0 for i in targets[0].get_field("labels")]).unsqueeze(0).to('cuda'), targets[0].get_field("labels").unsqueeze(0), targets]
 #         print(targets)
         if images_per_gpu_train == 1:
             if self.distributed:
@@ -210,7 +210,7 @@ class LightningGeneralizedRCNN(pl.LightningModule):
 
         # At this point we are waiting for kernels launched by cuda graph to finish, so CPU is idle.
         # Take advantage of this by loading next input batch before calling step
-#         self.prefetcher.prefetch_CPU()
+        self.prefetcher.prefetch_CPU()
 
         if self.distributed:
             grad_redux.wait()
@@ -223,7 +223,7 @@ class LightningGeneralizedRCNN(pl.LightningModule):
             )
 
         self.optimizer.step(overflow_buf)  # This will sync
-#         self.prefetcher.prefetch_GPU()
+        self.prefetcher.prefetch_GPU()
 
 
         if not self.cfg.DISABLE_LOSS_LOGGING and not self.cfg.DISABLE_REDUCED_LOGGING:
