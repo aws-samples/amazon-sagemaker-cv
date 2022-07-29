@@ -5,15 +5,15 @@ import os
 
 
 class DatasetCatalog(object):
-    DATA_DIR = "/opt/ml/input/data"
+    DATA_DIR = "/workspace/data"
     DATASETS = {
         "coco_2017_train": {
-            "img_dir": "train2017/",
+            "img_dir": "train/",
             "ann_file": "annotations/instances_train2017.json",
             "pkl_ann_file": "pkl_coco/instances_train2017.json.pickled"
         },
         "coco_2017_val": {
-            "img_dir": "val2017/",
+            "img_dir": "val/",
             "ann_file": "annotations/instances_val2017.json"
         },
     }
