@@ -3,7 +3,7 @@ SageMaker setup for MLPerf 2.0 MRCNN
 
 This provides the basic tools to train the Nvidia MLPerf code on SageMaker. Because the model is optimized specifically for the Nvidia PyTorch container, we start with that Docker image and add the SageMaker utilities, rather than using the AWS DLC. Once this image is uploaded to ECR, it can be called to start a training job with the `Launch.ipynb` script. 
 
-The training time on 1 P4D node is 49.783 minutes, 2 P4D nodes is 35.033 minutes, and 4 nodes is 17.483 minutes. 
+The training time on 1 P4D node is 49.783 minutes, 2 P4D nodes is 35.033 minutes, and 4 P4D nodes is 17.483 minutes. 
 
 
 
