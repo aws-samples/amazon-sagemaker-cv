@@ -1,5 +1,5 @@
 # mlperf_mrcnn
-SageMaker setup for MLPerf 1.1 MRCNN
+SageMaker setup for MLPerf 2.0 MRCNN
 
 This provides the basic tools to train the Nvidia MLPerf code on SageMaker. Because the model is optimized specifically for the Nvidia PyTorch container, we start with that Docker image and add the SageMaker utilities, rather than using the AWS DLC. Once this image is uploaded to ECR, it can be called to start a training job with the `Launch.ipynb` script. 
 
