@@ -294,17 +294,16 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     scaler = amp.GradScaler(enabled=cuda)
     stopper = EarlyStopping(patience=opt.patience)
     compute_loss = ComputeLoss(model)  # init loss class
-    LOGGER.info(f'Image sizes {imgsz} train, {imgsz} val\n'
-                f'Using {train_loader.num_workers * WORLD_SIZE} dataloader workers\n'
-                f"Logging results to {colorstr('bold', save_dir)}\n"
-                f'Starting training for {epochs} epochs...')
+    if RANK in [-1, 0]:
+        LOGGER.info(f'Image sizes {imgsz} train, {imgsz} val\n'
+                    f'Using {train_loader.num_workers * WORLD_SIZE} dataloader workers\n'
+                    f"Logging results to {colorstr('bold', save_dir)}\n"
+                    f'Starting training for {epochs} epochs...')
     
     # wrap model in debugger
     if Path(DEFAULT_CONFIG_FILE_PATH).exists() and RANK in [-1, 0]:
-    # if Path(DEFAULT_CONFIG_FILE_PATH).exists() and int(os.environ.get("OMPI_COMM_WORLD_RANK", 0))==0:
         hook = smd.get_hook(create_if_not_exists=True)
         hook.register_module(model)
-        #elif int(os.environ.get("RANK", 0))==0:
     elif RANK in [-1, 0]:
         save_config = SaveConfig(save_interval=25)
         include_collections = [CollectionKeys.LOSSES]
@@ -316,6 +315,8 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
                         include_collections=include_collections,
                         save_all=False,)
         hook.register_module(model)
+    
+    global_step = 0
     
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         model.train()
@@ -335,12 +336,12 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
         mloss = torch.zeros(3, device=device)  # mean losses
         if RANK != -1:
             train_loader.sampler.set_epoch(epoch)
-        pbar = enumerate(train_loader)
-        LOGGER.info(('\n' + '%10s' * 7) % ('Epoch', 'gpu_mem', 'box', 'obj', 'cls', 'labels', 'img_size'))
-        if RANK in [-1, 0]:
-            pbar = tqdm(pbar, total=nb, bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')  # progress bar
+        #pbar = enumerate(train_loader)
+        #LOGGER.info(('\n' + '%10s' * 7) % ('Epoch', 'gpu_mem', 'box', 'obj', 'cls', 'labels', 'img_size'))
+        #if RANK in [-1, 0]:
+        #    pbar = tqdm(pbar, total=nb, bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')  # progress bar
         optimizer.zero_grad()
-        for i, (imgs, targets, paths, _) in pbar:  # batch -------------------------------------------------------------
+        for i, (imgs, targets, paths, _) in enumerate(train_loader):  # batch -------------------------------------------------------------
             ni = i + nb * epoch  # number integrated batches (since train start)
             imgs = imgs.to(device, non_blocking=True).float() / 255  # uint8 to float32, 0-255 to 0.0-1.0
 
@@ -367,10 +368,12 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
             with amp.autocast(enabled=cuda):
                 pred = model(imgs)  # forward
                 loss, loss_items = compute_loss(pred, targets.to(device))  # loss scaled by batch_size
-                if RANK in [-1, 0]:
+                if RANK in [-1, 0] and global_step%opt.train_log_interval==0:
                     loss_tags = ['box_loss', 'object_loss', 'class_loss', 'total_loss']
-                    for tag, x in zip(loss_tags, loss_items):
-                        hook.record_tensor_value(tag, x)
+                    for tag, item in zip(loss_tags, loss_items):
+                        hook.record_tensor_value(tag, item)
+                    log_string = ", ".join(["{0}: {1:.4f}".format(tag, float(item)) for tag, item in zip(loss_tags, loss_items)])
+                    LOGGER.info("step {}, {}".format(i, log_string))
                 if RANK != -1:
                     loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
                 if opt.quad:
@@ -390,19 +393,21 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
 
             # Log
             if RANK in [-1, 0]:
-                mloss = (mloss * i + loss_items) / (i + 1)  # update mean losses
-                mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
-                pbar.set_description(('%10s' * 2 + '%10.4g' * 5) % (
-                    f'{epoch}/{epochs - 1}', mem, *mloss, targets.shape[0], imgs.shape[-1]))
+                #mloss = (mloss * i + loss_items) / (i + 1)  # update mean losses
+                #mem = f'{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G'  # (GB)
+                #pbar.set_description(('%10s' * 2 + '%10.4g' * 5) % (
+                #    f'{epoch}/{epochs - 1}', mem, *mloss, targets.shape[0], imgs.shape[-1]))
                 callbacks.run('on_train_batch_end', ni, model, imgs, targets, paths, plots, opt.sync_bn)
                 if callbacks.stop_training:
                     return
             # end batch ------------------------------------------------------------------------------------------------
 
-        # Scheduler
-        lr = [x['lr'] for x in optimizer.param_groups]  # for loggers
-        scheduler.step()
-
+            # Scheduler
+            lr = [x['lr'] for x in optimizer.param_groups]  # for loggers
+            scheduler.step()
+            
+            global_step += 1
+            
         if RANK in [-1, 0]:
             hook.set_mode(ModeKeys.EVAL)
             # mAP
@@ -420,12 +425,13 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
                                            plots=False,
                                            callbacks=callbacks,
                                            compute_loss=compute_loss)
-
             tags = ['epoch_train_giou_loss', 'epoch_train_obj_loss', 'epoch_train_cls_loss',
                         'metrics_precision', 'metrics_recall', 'metrics_mAP_0.5', 'metrics_mAP_0.5:0.95',
                         'val_giou_loss', 'val_obj_loss', 'val_cls_loss']
             for x, tag in zip(list(mloss[:-1]) + list(results), tags):
                 hook.save_scalar(tag, torch.tensor(x))
+            log_string = ", ".join(["{0}: {1:.4f}".format(tag, float(item)) for item, tag in zip(list(mloss[:-1]) + list(results), tags)])
+            LOGGER.info(log_string)
             
             # Update best mAP
             fi = fitness(np.array(results).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
@@ -533,6 +539,8 @@ def parse_opt(known=False):
     parser.add_argument('--patience', type=int, default=100, help='EarlyStopping patience (epochs without improvement)')
     parser.add_argument('--freeze', nargs='+', type=int, default=[0], help='Freeze layers: backbone=10, first3=0 1 2')
     parser.add_argument('--save-period', type=int, default=-1, help='Save checkpoint every x epochs (disabled if < 1)')
+    parser.add_argument('--train-log-interval', type=int, default=10, help='Logging frequency for training')
+    parser.add_argument('--eval-log-interval', type=int, default=10, help='Logging frequency for evaluation')
     parser.add_argument('--local_rank', type=int, default=-1, help='DDP parameter, do not modify')
 
     # Weights & Biases arguments
